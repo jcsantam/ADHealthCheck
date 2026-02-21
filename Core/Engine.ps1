@@ -27,6 +27,7 @@
 
 $moduleFiles = @(
     'Logger.ps1',
+    'Compatibility.ps1',
     'Discovery.ps1',
     'Executor.ps1',
     'Evaluator.ps1',
