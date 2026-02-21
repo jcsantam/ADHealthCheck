@@ -30,7 +30,8 @@ $moduleFiles = @(
     'Discovery.ps1',
     'Executor.ps1',
     'Evaluator.ps1',
-    'Scorer.ps1'
+    'Scorer.ps1',
+    'DatabaseOperations.ps1'
 )
 
 foreach ($moduleFile in $moduleFiles) {
@@ -348,10 +349,56 @@ function Get-Thresholds {
 function Get-CheckDefinitions {
     param([string]$DefinitionsPath, [array]$Categories, [bool]$EnabledOnly)
     
-    # Placeholder - returns empty array
-    # Will be implemented when we create actual check definitions
     Write-LogInfo "Loading check definitions from: $DefinitionsPath" -Category "Engine"
-    return @()
+    
+    $allChecks = @()
+    
+    try {
+        # Get all JSON definition files
+        $definitionFiles = Get-ChildItem -Path $DefinitionsPath -Filter "*.json" -File -ErrorAction Stop
+        
+        foreach ($file in $definitionFiles) {
+            try {
+                Write-LogVerbose "Loading definitions from: $($file.Name)" -Category "Engine"
+                
+                $content = Get-Content -Path $file.FullName -Raw | ConvertFrom-Json
+                
+                # Extract checks from file
+                foreach ($check in $content.Checks) {
+                    # Filter by category if specified
+                    if ($Categories.Count -gt 0 -and $check.CategoryId -notin $Categories) {
+                        continue
+                    }
+                    
+                    # Filter by enabled status
+                    if ($EnabledOnly -and -not $check.IsEnabled) {
+                        continue
+                    }
+                    
+                    # Make script path absolute
+                    if ($check.ScriptPath -like "..*") {
+                        $check.ScriptPath = Join-Path $DefinitionsPath $check.ScriptPath
+                        $check.ScriptPath = [System.IO.Path]::GetFullPath($check.ScriptPath)
+                    }
+                    
+                    $allChecks += $check
+                }
+                
+                Write-LogVerbose "Loaded $($content.Checks.Count) check(s) from $($file.Name)" -Category "Engine"
+            }
+            catch {
+                Write-LogWarning "Failed to load definitions from $($file.Name): $($_.Exception.Message)" -Category "Engine"
+            }
+        }
+        
+        Write-LogInfo "Loaded $($allChecks.Count) check definition(s)" -Category "Engine"
+        
+        return $allChecks
+    }
+    catch {
+        Write-LogError "Failed to load check definitions: $($_.Exception.Message)" -Category "Engine"
+        return @()
+    }
 }
 
 function Initialize-DatabaseConnection {
@@ -367,7 +414,35 @@ function Close-DatabaseConnection {
 
 function Save-InventoryToDatabase {
     param($RunId, $Inventory, $Connection)
-    Write-LogVerbose "Inventory saved to database (stub)" -Category "Engine"
+    Write-LogVerbose "Saving inventory to database..." -Category "Engine"
+    
+    try {
+        # Save forest info
+        Save-InventoryItem -Connection $Connection -RunId $RunId `
+            -ItemType "Forest" -ItemName $Inventory.ForestInfo.Name `
+            -Properties $Inventory.ForestInfo
+        
+        # Save domains
+        foreach ($domain in $Inventory.Domains) {
+            Save-InventoryItem -Connection $Connection -RunId $RunId `
+                -ItemType "Domain" -ItemName $domain.Name `
+                -ParentItem $Inventory.ForestInfo.Name `
+                -Properties $domain
+        }
+        
+        # Save DCs
+        foreach ($dc in $Inventory.DomainControllers) {
+            Save-InventoryItem -Connection $Connection -RunId $RunId `
+                -ItemType "DomainController" -ItemName $dc.Name `
+                -ParentItem $dc.Domain `
+                -Properties $dc
+        }
+        
+        Write-LogInfo "Inventory saved to database" -Category "Engine"
+    }
+    catch {
+        Write-LogWarning "Failed to save inventory to database: $($_.Exception.Message)" -Category "Engine"
+    }
 }
 
 function Save-CheckDefinitionsToDatabase {
@@ -377,17 +452,64 @@ function Save-CheckDefinitionsToDatabase {
 
 function Save-CheckResultsToDatabase {
     param($RunId, $Results, $Connection)
-    Write-LogVerbose "Check results saved to database (stub)" -Category "Engine"
+    Write-LogVerbose "Saving check results to database..." -Category "Engine"
+    
+    try {
+        foreach ($result in $Results) {
+            Save-CheckResult -Connection $Connection -RunId $RunId -Result $result
+        }
+        Write-LogInfo "Saved $($Results.Count) check result(s) to database" -Category "Engine"
+    }
+    catch {
+        Write-LogWarning "Failed to save check results: $($_.Exception.Message)" -Category "Engine"
+    }
 }
 
 function Save-IssuesToDatabase {
     param($RunId, $Results, $Connection)
-    Write-LogVerbose "Issues saved to database (stub)" -Category "Engine"
+    Write-LogVerbose "Saving issues to database..." -Category "Engine"
+    
+    try {
+        $issueCount = 0
+        foreach ($result in $Results) {
+            if ($result.Issues -and $result.Issues.Count -gt 0) {
+                foreach ($issue in $result.Issues) {
+                    Save-Issue -Connection $Connection -RunId $RunId `
+                        -ResultId ([Guid]::NewGuid().ToString()) `
+                        -CheckId $result.CheckId -Issue $issue
+                    $issueCount++
+                }
+            }
+        }
+        Write-LogInfo "Saved $issueCount issue(s) to database" -Category "Engine"
+    }
+    catch {
+        Write-LogWarning "Failed to save issues: $($_.Exception.Message)" -Category "Engine"
+    }
 }
 
 function Save-ScoresToDatabase {
     param($RunId, $Scores, $Connection)
-    Write-LogVerbose "Scores saved to database (stub)" -Category "Engine"
+    Write-LogVerbose "Saving scores to database..." -Category "Engine"
+    
+    try {
+        # Save overall score
+        Save-Score -Connection $Connection -RunId $RunId `
+            -CategoryId $null -ScoreValue $Scores.OverallScore `
+            -ChecksExecuted 0 -ChecksPassed 0
+        
+        # Save category scores
+        foreach ($catScore in $Scores.CategoryScores) {
+            Save-Score -Connection $Connection -RunId $RunId `
+                -CategoryId $catScore.CategoryId -ScoreValue $catScore.ScoreValue `
+                -ChecksExecuted $catScore.ChecksExecuted -ChecksPassed $catScore.ChecksPassed
+        }
+        
+        Write-LogInfo "Saved overall and category scores to database" -Category "Engine"
+    }
+    catch {
+        Write-LogWarning "Failed to save scores: $($_.Exception.Message)" -Category "Engine"
+    }
 }
 
 function Update-RunRecord {
