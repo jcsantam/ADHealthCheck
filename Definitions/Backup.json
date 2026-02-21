@@ -1,0 +1,48 @@
+{
+  "Category": "Backup",
+  "Description": "Backup validation and disaster recovery checks",
+  "Version": "1.0",
+  "Checks": [
+    {
+      "CheckId": "BACKUP-001",
+      "CheckName": "System State Backup Age",
+      "CategoryId": "Backup",
+      "Description": "Validates that system state backups are current relative to tombstone lifetime. Critical for ensuring ability to restore Active Directory without introducing lingering objects or USN inconsistencies.",
+      "Severity": "Critical",
+      "Impact": "Backups older than tombstone lifetime cannot be safely restored. This eliminates disaster recovery options and may result in permanent data loss during DC recovery scenarios.",
+      "Probability": "Medium",
+      "Effort": "Medium",
+      "ScriptPath": "../Checks/Backup/Test-BackupAge.ps1",
+      "EvaluationRules": {
+        "Rules": [
+          {
+            "Condition": "Any(BackupAgeDays > CriticalThreshold)",
+            "Status": "Fail",
+            "Title": "Critical: Backup exceeds safe restore threshold",
+            "Description": "System state backup age exceeds 75% of tombstone lifetime"
+          },
+          {
+            "Condition": "Any(BackupAgeDays > WarningThreshold)",
+            "Status": "Warning",
+            "Title": "Backup age approaching tombstone limit",
+            "Description": "System state backup age exceeds 50% of tombstone lifetime"
+          },
+          {
+            "Condition": "Any(LastBackupDate == null)",
+            "Status": "Fail",
+            "Title": "No backup found",
+            "Description": "Cannot verify system state backup existence"
+          }
+        ]
+      },
+      "RemediationSteps": "1. Immediately perform system state backup on all DCs\n2. Verify Windows Server Backup is installed and configured\n3. Create backup schedule (at minimum every 7 days)\n4. Test backup restore procedure\n5. Implement automated backup monitoring\n6. Document backup/restore procedures\n7. Consider implementing Azure AD Connect cloud backup",
+      "KBArticles": [
+        "https://docs.microsoft.com/windows-server/identity/ad-ds/manage/ad-forest-recovery-backing-up-a-full-server",
+        "https://docs.microsoft.com/troubleshoot/windows-server/backup-and-storage/backup-domain-controller"
+      ],
+      "Tags": ["Backup", "Critical", "DR", "Tombstone", "Recovery"],
+      "IsEnabled": true,
+      "Version": "1.0"
+    }
+  ]
+}

@@ -1,0 +1,54 @@
+{
+  "Category": "GPO",
+  "Description": "Group Policy Object health and consistency checks",
+  "Version": "1.0",
+  "Checks": [
+    {
+      "CheckId": "GPO-001",
+      "CheckName": "Orphaned GPO Detection",
+      "CategoryId": "GPO",
+      "Description": "Detects Group Policy Objects that are orphaned or inconsistent between Active Directory and SYSVOL. Identifies GPOs missing from either location, version mismatches, empty GPOs, and unlinked policies.",
+      "Severity": "High",
+      "Impact": "Orphaned GPOs cause replication issues, SYSVOL bloat, slow Group Policy processing, and policies that fail to apply. Version mismatches prevent policy settings from being enforced.",
+      "Probability": "Medium",
+      "Effort": "Medium",
+      "ScriptPath": "../Checks/GPO/Test-OrphanedGPOs.ps1",
+      "EvaluationRules": {
+        "Rules": [
+          {
+            "Condition": "Any(OrphanType == 'Missing from SYSVOL')",
+            "Status": "Fail",
+            "Title": "GPO missing from SYSVOL",
+            "Description": "GPO exists in Active Directory but not in SYSVOL folder structure"
+          },
+          {
+            "Condition": "Any(OrphanType == 'Missing from AD')",
+            "Status": "Fail",
+            "Title": "Orphaned SYSVOL data",
+            "Description": "GPO folder exists in SYSVOL but not in Active Directory"
+          },
+          {
+            "Condition": "Any(OrphanType == 'Version Mismatch')",
+            "Status": "Warning",
+            "Title": "GPO version mismatch",
+            "Description": "Version numbers differ between AD and SYSVOL"
+          },
+          {
+            "Condition": "Any(OrphanType == 'Empty and Unlinked')",
+            "Status": "Warning",
+            "Title": "Empty unlinked GPO",
+            "Description": "GPO has no settings and is not linked anywhere - cleanup candidate"
+          }
+        ]
+      },
+      "RemediationSteps": "For Missing from SYSVOL:\n1. Force GPO replication: 'gpupdate /force'\n2. Verify SYSVOL replication health\n3. Manually recreate GPO folder if needed\n4. Check FRS/DFSR replication status\n\nFor Missing from AD:\n1. Verify GPO was intentionally deleted\n2. Remove orphaned SYSVOL folder: Delete manually\n3. Run SYSVOL cleanup\n\nFor Version Mismatch:\n1. Force policy refresh: 'gpupdate /force'\n2. Check SYSVOL replication lag\n3. Force replication if needed\n\nFor Empty/Unlinked:\n1. Review if GPO is needed\n2. If not, safely delete the GPO\n3. Clean up SYSVOL automatically",
+      "KBArticles": [
+        "https://docs.microsoft.com/troubleshoot/windows-server/group-policy/sysvol-and-group-policy-out-of-sync",
+        "https://docs.microsoft.com/troubleshoot/windows-server/group-policy/group-policy-linked-but-not-applied"
+      ],
+      "Tags": ["GPO", "SYSVOL", "Replication", "Cleanup", "Orphaned"],
+      "IsEnabled": true,
+      "Version": "1.0"
+    }
+  ]
+}

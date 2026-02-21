@@ -1,0 +1,75 @@
+{
+  "Category": "Security",
+  "Description": "Active Directory security and compliance checks",
+  "Version": "1.0",
+  "Checks": [
+    {
+      "CheckId": "SEC-001",
+      "CheckName": "Stale Computer Accounts",
+      "CategoryId": "Security",
+      "Description": "Identifies inactive, stale, and potentially orphaned computer accounts that haven't authenticated in 90+ days, are disabled, or located in default containers.",
+      "Severity": "High",
+      "Impact": "Stale computer accounts represent security risks, consume licenses, and clutter Active Directory. Orphaned accounts may indicate departed devices or security breaches.",
+      "Probability": "High",
+      "Effort": "Low",
+      "ScriptPath": "../Checks/Security/Test-StaleComputers.ps1",
+      "EvaluationRules": {
+        "Rules": [
+          {
+            "Condition": "Any(DaysSinceLogon > 180)",
+            "Status": "Fail",
+            "Title": "Critical: Computer accounts inactive for 180+ days",
+            "Description": "Found computer accounts with no authentication in over 6 months"
+          },
+          {
+            "Condition": "Any(DaysSinceLogon > 90)",
+            "Status": "Warning",
+            "Title": "Stale computer accounts detected",
+            "Description": "Computer accounts haven't authenticated in 90+ days"
+          }
+        ]
+      },
+      "RemediationSteps": "1. Review stale computer list with asset management\n2. Disable accounts inactive for 90+ days\n3. Move disabled accounts to quarantine OU\n4. After 30 days, delete confirmed orphaned accounts\n5. Implement automated cleanup policy\n6. Document exceptions (test systems, etc.)",
+      "KBArticles": [
+        "https://docs.microsoft.com/windows-server/identity/ad-ds/manage/understand-security-identifiers"
+      ],
+      "Tags": ["Security", "Cleanup", "Stale", "Computers", "Compliance"],
+      "IsEnabled": true,
+      "Version": "1.0"
+    },
+    {
+      "CheckId": "SEC-002",
+      "CheckName": "Privileged Account Monitoring",
+      "CategoryId": "Security",
+      "Description": "Monitors membership of privileged groups (Domain Admins, Enterprise Admins, etc.) and validates AdminSDHolder protection. Detects unauthorized privilege escalation and service accounts in admin groups.",
+      "Severity": "Critical",
+      "Impact": "Unauthorized privileged access enables attackers to compromise entire domains. Service accounts in privileged groups violate security best practices.",
+      "Probability": "Medium",
+      "Effort": "Low",
+      "ScriptPath": "../Checks/Security/Test-PrivilegedAccounts.ps1",
+      "EvaluationRules": {
+        "Rules": [
+          {
+            "Condition": "Any(IsServiceAccount == true)",
+            "Status": "Fail",
+            "Title": "Service account in privileged group",
+            "Description": "Service accounts should not be members of privileged groups"
+          },
+          {
+            "Condition": "Any(HasAdminCount == false AND PrivilegedGroup IN ['Domain Admins','Enterprise Admins'])",
+            "Status": "Warning",
+            "Title": "Missing AdminSDHolder protection",
+            "Description": "Privileged account not properly protected by AdminSDHolder"
+          }
+        ]
+      },
+      "RemediationSteps": "1. Review all privileged group memberships\n2. Remove service accounts from admin groups\n3. Implement separate service account groups\n4. Force AdminSDHolder propagation: Run SDProp manually\n5. Enable privileged access monitoring/alerting\n6. Implement Privileged Access Workstations (PAW)\n7. Consider implementing tiered administration model",
+      "KBArticles": [
+        "https://docs.microsoft.com/windows-server/identity/ad-ds/plan/security-best-practices/appendix-c--protected-accounts-and-groups-in-active-directory"
+      ],
+      "Tags": ["Security", "Critical", "Privileged", "AdminSDHolder", "Compliance"],
+      "IsEnabled": true,
+      "Version": "1.0"
+    }
+  ]
+}

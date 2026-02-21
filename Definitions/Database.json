@@ -1,0 +1,48 @@
+{
+  "Category": "Database",
+  "Description": "NTDS database health and integrity checks",
+  "Version": "1.0",
+  "Checks": [
+    {
+      "CheckId": "DB-001",
+      "CheckName": "NTDS Database Health",
+      "CategoryId": "Database",
+      "Description": "Comprehensive validation of NTDS.dit database health including size, free space, database state, ESE errors, and transaction log status. Critical for preventing DC failures and data corruption.",
+      "Severity": "Critical",
+      "Impact": "Database corruption or disk space exhaustion causes complete DC failure, replication stops, and potential data loss. ESE errors indicate hardware issues or corruption.",
+      "Probability": "Low",
+      "Effort": "Medium",
+      "ScriptPath": "../Checks/Database/Test-NTDSHealth.ps1",
+      "EvaluationRules": {
+        "Rules": [
+          {
+            "Condition": "DatabaseState != 'Clean Shutdown'",
+            "Status": "Fail",
+            "Title": "Database not in clean state",
+            "Description": "NTDS database state indicates improper shutdown or corruption"
+          },
+          {
+            "Condition": "FreeSpaceGB < (DatabaseSizeGB * 1.25)",
+            "Status": "Fail",
+            "Title": "Insufficient disk space for database growth",
+            "Description": "Free space less than 125% of current database size"
+          },
+          {
+            "Condition": "ESEErrorCount > 0",
+            "Status": "Warning",
+            "Title": "ESE database errors detected",
+            "Description": "Found ESE errors in Application event log"
+          }
+        ]
+      },
+      "RemediationSteps": "1. Check database state with 'esentutl /mh ntds.dit'\n2. If not clean shutdown, investigate unplanned outages\n3. Expand disk if space insufficient\n4. Run database integrity check: 'esentutl /g ntds.dit'\n5. Perform offline defragmentation if needed\n6. Check hardware for disk errors\n7. Review System and Application event logs for ESE errors\n8. Consider moving database to larger volume",
+      "KBArticles": [
+        "https://docs.microsoft.com/troubleshoot/windows-server/identity/manage-ad-database",
+        "https://docs.microsoft.com/troubleshoot/windows-server/identity/perform-offline-defrag-of-ad-database"
+      ],
+      "Tags": ["Database", "Critical", "NTDS", "ESE", "Corruption", "Performance"],
+      "IsEnabled": true,
+      "Version": "1.0"
+    }
+  ]
+}
