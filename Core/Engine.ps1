@@ -31,7 +31,8 @@ $moduleFiles = @(
     'Executor.ps1',
     'Evaluator.ps1',
     'Scorer.ps1',
-    'DatabaseOperations.ps1'
+    'DatabaseOperations.ps1',
+    'HtmlReporter.ps1'
 )
 
 foreach ($moduleFile in $moduleFiles) {
@@ -533,33 +534,9 @@ function Export-JsonReport {
 function Export-HtmlReport {
     param($Summary, $Scores, $Results, $Path)
     
-    $html = @"
-<!DOCTYPE html>
-<html>
-<head>
-    <title>AD Health Check Report</title>
-    <style>
-        body { font-family: Arial, sans-serif; margin: 20px; }
-        h1 { color: #2c3e50; }
-        .score { font-size: 48px; font-weight: bold; color: #27ae60; }
-        .summary { background: #ecf0f1; padding: 15px; border-radius: 5px; }
-    </style>
-</head>
-<body>
-    <h1>AD Health Check Report</h1>
-    <div class="summary">
-        <h2>Overall Score: <span class="score">$($Scores.OverallScore)/100</span></h2>
-        <p><strong>Forest:</strong> $($Summary.ForestName)</p>
-        <p><strong>Date:</strong> $($Summary.StartTime)</p>
-        <p><strong>Checks Executed:</strong> $($Summary.TotalChecks)</p>
-        <p><strong>Issues Found:</strong> Critical: $($Summary.CriticalIssues), High: $($Summary.HighIssues)</p>
-    </div>
-</body>
-</html>
-"@
-    
-    $html | Out-File -FilePath $Path -Encoding UTF8
-    Write-LogInfo "HTML report exported: $Path" -Category "Engine"
+    # Use enhanced HTML reporter
+    Export-EnhancedHtmlReport -Summary $Summary -Scores $Scores -Results $Results -Path $Path
+    Write-LogInfo "Enhanced HTML report exported: $Path" -Category "Engine"
 }
 
 # =============================================================================
