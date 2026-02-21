@@ -1,0 +1,69 @@
+{
+  "Category": "DNS",
+  "Description": "DNS infrastructure and name resolution checks",
+  "Version": "1.0",
+  "Checks": [
+    {
+      "CheckId": "DNS-001",
+      "CheckName": "Critical SRV Records",
+      "CategoryId": "DNS",
+      "Description": "Validates that essential AD SRV records are present and correct (_ldap, _kerberos, _gc).",
+      "Severity": "Critical",
+      "Impact": "Missing SRV records prevent clients from locating domain controllers for authentication and services.",
+      "Probability": "Low",
+      "Effort": "Medium",
+      "ScriptPath": "../Checks/DNS/Test-CriticalSRVRecords.ps1",
+      "EvaluationRules": {
+        "Rules": [
+          {
+            "Condition": "MissingRecordsCount > 0",
+            "Status": "Fail",
+            "Title": "Critical SRV Records Missing",
+            "Description": "One or more critical AD SRV records are missing from DNS"
+          }
+        ]
+      },
+      "RemediationSteps": "1. Run 'dcdiag /test:registerindns /dnsdomain:<domain>'\n2. Restart Netlogon service: 'net stop netlogon && net start netlogon'\n3. Force DNS registration: 'nltest /dsregdns'\n4. Verify DNS zone allows dynamic updates\n5. Check _msdcs zone replication",
+      "KBArticles": [
+        "https://docs.microsoft.com/troubleshoot/windows-server/networking/verify-srv-dns-records-have-been-created"
+      ],
+      "Tags": ["DNS", "SRV", "Critical", "Records"],
+      "IsEnabled": true,
+      "Version": "1.0"
+    },
+    {
+      "CheckId": "DNS-002",
+      "CheckName": "DNS Zone Health",
+      "CategoryId": "DNS",
+      "Description": "Checks AD-integrated DNS zone health including replication and scavenging.",
+      "Severity": "Medium",
+      "Impact": "DNS zone issues can cause name resolution failures and service disruption.",
+      "Probability": "Low",
+      "Effort": "Medium",
+      "ScriptPath": "../Checks/DNS/Test-DNSZoneHealth.ps1",
+      "EvaluationRules": {
+        "Rules": [
+          {
+            "Condition": "ZoneNotReplicating == true",
+            "Status": "Fail",
+            "Title": "DNS Zone Not Replicating",
+            "Description": "AD-integrated DNS zone is not replicating properly"
+          },
+          {
+            "Condition": "ScavengingDisabled == true",
+            "Status": "Warning",
+            "Title": "DNS Scavenging Disabled",
+            "Description": "DNS scavenging is disabled, stale records may accumulate"
+          }
+        ]
+      },
+      "RemediationSteps": "1. Check DNS zone replication status\n2. Verify zone is AD-integrated\n3. Enable scavenging if appropriate\n4. Set scavenging interval to 7 days (recommended)\n5. Review DNS event logs",
+      "KBArticles": [
+        "https://docs.microsoft.com/troubleshoot/windows-server/networking/configure-dns-dynamic-updates-windows-server-2003"
+      ],
+      "Tags": ["DNS", "Zone", "Scavenging", "Replication"],
+      "IsEnabled": true,
+      "Version": "1.0"
+    }
+  ]
+}

@@ -1,0 +1,75 @@
+{
+  "Category": "Time",
+  "Description": "Time synchronization checks for Kerberos authentication",
+  "Version": "1.0",
+  "Checks": [
+    {
+      "CheckId": "TIME-001",
+      "CheckName": "PDC Time Source",
+      "CategoryId": "Time",
+      "Description": "Validates that the PDC Emulator is configured with an external reliable time source.",
+      "Severity": "High",
+      "Impact": "PDC without external time source can cause forest-wide time drift, breaking Kerberos authentication.",
+      "Probability": "Medium",
+      "Effort": "Low",
+      "ScriptPath": "../Checks/Time/Test-PDCTimeSource.ps1",
+      "EvaluationRules": {
+        "Rules": [
+          {
+            "Condition": "HasExternalSource == false",
+            "Status": "Fail",
+            "Title": "PDC Missing External Time Source",
+            "Description": "PDC Emulator is not configured with external NTP server"
+          },
+          {
+            "Condition": "TimeSyncFailing == true",
+            "Status": "Fail",
+            "Title": "PDC Time Sync Failing",
+            "Description": "PDC Emulator cannot reach configured time source"
+          }
+        ]
+      },
+      "RemediationSteps": "1. Configure external NTP on PDC: 'w32tm /config /manualpeerlist:\"time.windows.com\" /syncfromflags:manual /reliable:yes /update'\n2. Restart W32Time: 'net stop w32time && net start w32time'\n3. Force sync: 'w32tm /resync'\n4. Verify: 'w32tm /query /status'\n5. Use reliable NTP sources (time.nist.gov, pool.ntp.org)",
+      "KBArticles": [
+        "https://docs.microsoft.com/troubleshoot/windows-server/identity/configure-authoritative-time-server"
+      ],
+      "Tags": ["Time", "PDC", "NTP", "Critical"],
+      "IsEnabled": true,
+      "Version": "1.0"
+    },
+    {
+      "CheckId": "TIME-002",
+      "CheckName": "DC Time Offset",
+      "CategoryId": "Time",
+      "Description": "Checks time offset between DCs and PDC. Kerberos requires time within 5 minutes.",
+      "Severity": "Critical",
+      "Impact": "Time offset > 5 minutes causes Kerberos authentication failures.",
+      "Probability": "Low",
+      "Effort": "Low",
+      "ScriptPath": "../Checks/Time/Test-DCTimeOffset.ps1",
+      "EvaluationRules": {
+        "Rules": [
+          {
+            "Condition": "Any(OffsetSeconds > 300)",
+            "Status": "Fail",
+            "Title": "Critical: Time Offset Exceeds 5 Minutes",
+            "Description": "DC time offset from PDC exceeds Kerberos tolerance (5 minutes)"
+          },
+          {
+            "Condition": "Any(OffsetSeconds > 120)",
+            "Status": "Warning",
+            "Title": "Warning: Time Offset High",
+            "Description": "DC time offset from PDC exceeds 2 minutes"
+          }
+        ]
+      },
+      "RemediationSteps": "1. Identify DC with time drift\n2. Force immediate sync: 'w32tm /resync /force'\n3. Check W32Time service status\n4. Verify DC can reach PDC on port 123\n5. Review time service configuration: 'w32tm /query /configuration'\n6. Check if virtualization time sync is interfering",
+      "KBArticles": [
+        "https://docs.microsoft.com/troubleshoot/windows-server/identity/kerberos-authentication-problems-if-device-datetime-out-of-sync"
+      ],
+      "Tags": ["Time", "Kerberos", "Critical", "Offset"],
+      "IsEnabled": true,
+      "Version": "1.0"
+    }
+  ]
+}

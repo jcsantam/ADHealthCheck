@@ -1,0 +1,246 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "AD Health Check - Thresholds",
+  "description": "Threshold values for health check evaluations",
+  
+  "diskSpace": {
+    "systemDrive": {
+      "criticalMB": 100,
+      "warningMB": 500,
+      "description": "Free space thresholds for system drive (typically C:)"
+    },
+    "databaseVolume": {
+      "criticalGB": 1,
+      "warningGB": 5,
+      "criticalPercentOfDB": 125,
+      "description": "Free space thresholds for AD database volume. Critical if less than 1GB OR less than 125% of ntds.dit size"
+    },
+    "logVolume": {
+      "criticalGB": 1,
+      "warningGB": 3,
+      "description": "Free space thresholds for AD log volume"
+    },
+    "sysvolVolume": {
+      "criticalGB": 1,
+      "warningGB": 2,
+      "description": "Free space thresholds for SYSVOL volume"
+    }
+  },
+  
+  "performance": {
+    "cpu": {
+      "criticalPercent": 90,
+      "warningPercent": 75,
+      "sampleDurationSeconds": 60,
+      "description": "CPU utilization thresholds (sustained average)"
+    },
+    "memory": {
+      "criticalPercent": 95,
+      "warningPercent": 85,
+      "description": "Memory utilization thresholds"
+    },
+    "diskIO": {
+      "criticalAvgSecPerRead": 0.05,
+      "warningAvgSecPerRead": 0.03,
+      "criticalAvgSecPerWrite": 0.05,
+      "warningAvgSecPerWrite": 0.03,
+      "description": "Disk I/O latency thresholds in seconds"
+    },
+    "lsass": {
+      "criticalMemoryMB": 2048,
+      "warningMemoryMB": 1536,
+      "description": "LSASS process memory usage thresholds"
+    }
+  },
+  
+  "replication": {
+    "latency": {
+      "criticalMinutes": 60,
+      "warningMinutes": 30,
+      "description": "Replication latency thresholds"
+    },
+    "lastSuccess": {
+      "criticalHours": 24,
+      "warningHours": 12,
+      "description": "Time since last successful replication"
+    },
+    "failureCount": {
+      "critical": 10,
+      "warning": 5,
+      "description": "Consecutive replication failures"
+    },
+    "queueLength": {
+      "critical": 100,
+      "warning": 50,
+      "description": "Replication queue length (pending changes)"
+    },
+    "tombstoneLifetime": {
+      "criticalDaysRemaining": 7,
+      "warningDaysRemaining": 30,
+      "description": "Days remaining before backup exceeds tombstone lifetime"
+    }
+  },
+  
+  "time": {
+    "offsetFromPDC": {
+      "criticalSeconds": 5,
+      "warningSeconds": 2,
+      "description": "Time offset from PDC Emulator (Kerberos requires <5 seconds)"
+    },
+    "offsetFromExternalSource": {
+      "criticalSeconds": 60,
+      "warningSeconds": 30,
+      "description": "PDC Emulator offset from external time source"
+    },
+    "lastSyncAge": {
+      "criticalHours": 24,
+      "warningHours": 12,
+      "description": "Time since last successful time synchronization"
+    }
+  },
+  
+  "dns": {
+    "queryResponseTime": {
+      "criticalMs": 1000,
+      "warningMs": 500,
+      "description": "DNS query response time thresholds"
+    },
+    "zoneTransferAge": {
+      "criticalHours": 48,
+      "warningHours": 24,
+      "description": "Age of last zone transfer for secondary zones"
+    },
+    "scavengingInterval": {
+      "warningDays": 14,
+      "recommendedDays": 7,
+      "description": "DNS scavenging interval configuration"
+    }
+  },
+  
+  "backup": {
+    "systemStateAge": {
+      "criticalDays": 7,
+      "warningDays": 3,
+      "description": "Age of last system state backup"
+    },
+    "backupVsTombstone": {
+      "criticalDaysFromTSL": 10,
+      "warningDaysFromTSL": 30,
+      "description": "Backup age compared to tombstone lifetime"
+    }
+  },
+  
+  "database": {
+    "whitespace": {
+      "criticalPercent": 50,
+      "warningPercent": 30,
+      "description": "White space percentage in AD database"
+    },
+    "fragmentationPercent": {
+      "warning": 20,
+      "description": "Database fragmentation percentage"
+    },
+    "sizeGrowthRate": {
+      "warningPercentPerMonth": 20,
+      "description": "Monthly database growth rate"
+    }
+  },
+  
+  "gpo": {
+    "versionMismatch": {
+      "critical": "any",
+      "description": "Any GPO version mismatch between AD and SYSVOL is critical"
+    },
+    "replicationAge": {
+      "criticalHours": 24,
+      "warningHours": 12,
+      "description": "SYSVOL/GPO replication age"
+    },
+    "orphanedCount": {
+      "warning": 5,
+      "description": "Number of orphaned GPOs"
+    }
+  },
+  
+  "security": {
+    "staleUserAccounts": {
+      "warningDays": 90,
+      "description": "User accounts not logged in for this many days"
+    },
+    "staleComputerAccounts": {
+      "warningDays": 90,
+      "description": "Computer accounts not logged in for this many days"
+    },
+    "passwordAge": {
+      "serviceAccounts": {
+        "warningDays": 365,
+        "description": "Service account password age"
+      },
+      "adminAccounts": {
+        "warningDays": 90,
+        "description": "Administrative account password age"
+      }
+    },
+    "privilegedGroupMembers": {
+      "enterpriseAdmins": {
+        "warning": 5,
+        "description": "Recommended max members in Enterprise Admins"
+      },
+      "schemaAdmins": {
+        "warning": 0,
+        "description": "Recommended to have 0 permanent members in Schema Admins"
+      },
+      "domainAdmins": {
+        "warning": 10,
+        "description": "Recommended max members in Domain Admins"
+      }
+    }
+  },
+  
+  "sites": {
+    "dcCountPerSite": {
+      "minimum": 2,
+      "warning": 1,
+      "description": "Recommended minimum DCs per site for redundancy"
+    },
+    "gcCountPerSite": {
+      "minimum": 1,
+      "description": "Minimum Global Catalogs per site"
+    },
+    "siteLinkCost": {
+      "maximum": 99999,
+      "recommendedMaximum": 10000,
+      "description": "Site link cost thresholds"
+    }
+  },
+  
+  "services": {
+    "startupType": {
+      "ntds": "Automatic",
+      "netlogon": "Automatic",
+      "dns": "Automatic",
+      "kdc": "Automatic",
+      "w32time": "Automatic",
+      "dfsr": "Automatic",
+      "description": "Expected startup types for critical services"
+    },
+    "restartCounts": {
+      "critical": 5,
+      "warning": 3,
+      "timeWindowHours": 24,
+      "description": "Service restart counts within time window"
+    }
+  },
+  
+  "eventLog": {
+    "criticalEventAge": {
+      "hours": 24,
+      "description": "Report critical events within this time window"
+    },
+    "eventCountThreshold": {
+      "critical": 100,
+      "warning": 50,
+      "description": "Count of same event ID within time window"
+    }
+  }
+}

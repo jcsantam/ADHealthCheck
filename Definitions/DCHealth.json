@@ -1,0 +1,97 @@
+{
+  "Category": "DCHealth",
+  "Description": "Domain Controller health, services, and performance checks",
+  "Version": "1.0",
+  "Checks": [
+    {
+      "CheckId": "DC-001",
+      "CheckName": "Critical Services Status",
+      "CategoryId": "DCHealth",
+      "Description": "Validates that all critical AD services are running on each domain controller (NTDS, Netlogon, DNS, KDC, W32Time).",
+      "Severity": "Critical",
+      "Impact": "Stopped critical services prevent DC from functioning properly, causing authentication failures and service outages.",
+      "Probability": "Low",
+      "Effort": "Low",
+      "ScriptPath": "../Checks/DCHealth/Test-CriticalServices.ps1",
+      "EvaluationRules": {
+        "Rules": [
+          {
+            "Condition": "Any(ServiceStatus == 'Stopped')",
+            "Status": "Fail",
+            "Title": "Critical Service Stopped",
+            "Description": "One or more critical AD services are not running"
+          }
+        ]
+      },
+      "RemediationSteps": "1. Identify which service is stopped\n2. Check Event Viewer for service-specific errors\n3. Attempt to start service: 'net start <servicename>'\n4. If service fails to start, review dependencies\n5. Check for corruption or configuration issues",
+      "KBArticles": [
+        "https://docs.microsoft.com/troubleshoot/windows-server/identity/config-firewall-for-ad-domains-and-trusts"
+      ],
+      "Tags": ["DCHealth", "Services", "Critical", "NTDS", "Netlogon"],
+      "IsEnabled": true,
+      "Version": "1.0"
+    },
+    {
+      "CheckId": "DC-002",
+      "CheckName": "Disk Space",
+      "CategoryId": "DCHealth",
+      "Description": "Checks free disk space on critical volumes (System, Database, Logs, SYSVOL).",
+      "Severity": "High",
+      "Impact": "Low disk space can cause AD database corruption, service failures, and prevent updates.",
+      "Probability": "Medium",
+      "Effort": "Low",
+      "ScriptPath": "../Checks/DCHealth/Test-DiskSpace.ps1",
+      "EvaluationRules": {
+        "Rules": [
+          {
+            "Condition": "SystemDriveFreeGB < 1",
+            "Status": "Fail",
+            "Title": "Critical: System Drive Low Space",
+            "Description": "System drive has less than 1 GB free"
+          },
+          {
+            "Condition": "DatabaseVolumeFreeGB < 5",
+            "Status": "Warning",
+            "Title": "Warning: Database Volume Low Space",
+            "Description": "Database volume has less than 5 GB free"
+          }
+        ]
+      },
+      "RemediationSteps": "1. Identify files consuming space\n2. Clear temp files and logs\n3. Run Disk Cleanup\n4. Check for unnecessary shadow copies\n5. Expand disk if needed\n6. Consider moving database/logs to larger volume",
+      "KBArticles": [
+        "https://docs.microsoft.com/windows-server/administration/windows-commands/cleanmgr"
+      ],
+      "Tags": ["DCHealth", "DiskSpace", "Storage", "Performance"],
+      "IsEnabled": true,
+      "Version": "1.0"
+    },
+    {
+      "CheckId": "DC-003",
+      "CheckName": "DC Reachability",
+      "CategoryId": "DCHealth",
+      "Description": "Tests network connectivity to all domain controllers via ping and DNS resolution.",
+      "Severity": "High",
+      "Impact": "Unreachable DCs cannot service authentication requests or participate in replication.",
+      "Probability": "Low",
+      "Effort": "Low",
+      "ScriptPath": "../Checks/DCHealth/Test-DCReachability.ps1",
+      "EvaluationRules": {
+        "Rules": [
+          {
+            "Condition": "Any(IsReachable == false)",
+            "Status": "Fail",
+            "Title": "Domain Controller Unreachable",
+            "Description": "One or more domain controllers are not responding to network requests"
+          }
+        ]
+      },
+      "RemediationSteps": "1. Verify DC is powered on\n2. Check network connectivity\n3. Verify firewall rules\n4. Test DNS resolution\n5. Check physical network cable/switch\n6. Review DC event logs if accessible",
+      "KBArticles": [
+        "https://docs.microsoft.com/troubleshoot/windows-server/networking/configure-firewall-for-domains-and-trusts"
+      ],
+      "Tags": ["DCHealth", "Connectivity", "Network", "DNS"],
+      "IsEnabled": true,
+      "Version": "1.0"
+    }
+  ]
+}

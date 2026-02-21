@@ -1,0 +1,74 @@
+# ==============================================================================
+# AD Health Check - Git Ignore File
+# ==============================================================================
+
+# Output directory (contains logs, reports, database)
+Output/
+*.db
+*.db-journal
+*.log
+
+# PowerShell Gallery package files
+*.nupkg
+*.nuspec
+
+# Visual Studio Code
+.vscode/
+*.code-workspace
+
+# Windows
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Temporary files
+*.tmp
+*.temp
+~$*
+
+# Test results
+TestResults/
+*.trx
+
+# User-specific files
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Backup files
+*.bak
+*.backup
+*~
+
+# Mac OS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Secrets and credentials (just in case)
+*secret*
+*credential*
+*password*
+*.pfx
+*.p12
+
+# Local environment files
+.env
+.env.local
+
+# Node modules (if any JavaScript tools added later)
+node_modules/
+
+# Package manager locks
+package-lock.json
+yarn.lock
+
+# Editor directories
+.idea/
+*.swp
+*.swo
+
+# Build artifacts
+bin/
+obj/

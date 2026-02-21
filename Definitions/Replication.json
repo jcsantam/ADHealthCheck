@@ -1,0 +1,99 @@
+{
+  "Category": "Replication",
+  "Description": "Active Directory replication health and topology checks",
+  "Version": "1.0",
+  "Checks": [
+    {
+      "CheckId": "REP-001",
+      "CheckName": "Replication Status",
+      "CategoryId": "Replication",
+      "Description": "Validates that replication is functioning correctly between all domain controllers. Checks for replication failures, latency, and last successful sync time.",
+      "Severity": "Critical",
+      "Impact": "Replication failures prevent changes from propagating across DCs, leading to inconsistent directory data and authentication issues.",
+      "Probability": "Medium",
+      "Effort": "Medium",
+      "ScriptPath": "../Checks/Replication/Test-ReplicationStatus.ps1",
+      "EvaluationRules": {
+        "Rules": [
+          {
+            "Condition": "Any(Status == 'Failed')",
+            "Status": "Fail",
+            "Title": "Replication Failure Detected",
+            "Description": "One or more replication partnerships have failed"
+          },
+          {
+            "Condition": "Any(LastSyncHours > 24)",
+            "Status": "Warning",
+            "Title": "Replication Latency High",
+            "Description": "Replication has not occurred in over 24 hours"
+          }
+        ]
+      },
+      "RemediationSteps": "1. Run 'repadmin /showrepl' on affected DC\n2. Check network connectivity between DCs\n3. Verify DNS resolution\n4. Check replication topology with 'repadmin /showreps'\n5. Force replication: 'repadmin /syncall /AdeP'",
+      "KBArticles": [
+        "https://docs.microsoft.com/troubleshoot/windows-server/identity/replication-error-troubleshooting",
+        "https://docs.microsoft.com/troubleshoot/windows-server/identity/replication-error-1722"
+      ],
+      "Tags": ["Replication", "Critical", "ADDS", "Topology"],
+      "IsEnabled": true,
+      "Version": "1.0"
+    },
+    {
+      "CheckId": "REP-002",
+      "CheckName": "Replication Errors",
+      "CategoryId": "Replication",
+      "Description": "Checks for common replication error codes that indicate problems with AD replication infrastructure.",
+      "Severity": "High",
+      "Impact": "Replication errors can lead to data inconsistency and service degradation.",
+      "Probability": "Low",
+      "Effort": "Medium",
+      "ScriptPath": "../Checks/Replication/Test-ReplicationErrors.ps1",
+      "EvaluationRules": {
+        "Rules": [
+          {
+            "Condition": "ErrorCount > 0",
+            "Status": "Fail",
+            "Title": "Replication Errors Found",
+            "Description": "Active replication errors detected in event logs"
+          }
+        ]
+      },
+      "RemediationSteps": "1. Identify error code from event log\n2. Run 'repadmin /showrepl' to identify source\n3. Check specific error remediation in Microsoft docs\n4. Common fixes: DNS, firewall, time sync, authentication",
+      "KBArticles": [
+        "https://docs.microsoft.com/troubleshoot/windows-server/identity/replication-error-8524",
+        "https://docs.microsoft.com/troubleshoot/windows-server/identity/replication-error-8453"
+      ],
+      "Tags": ["Replication", "Errors", "EventLog"],
+      "IsEnabled": true,
+      "Version": "1.0"
+    },
+    {
+      "CheckId": "REP-003",
+      "CheckName": "USN Rollback Detection",
+      "CategoryId": "Replication",
+      "Description": "Detects potential USN rollback scenarios which can cause serious replication issues.",
+      "Severity": "Critical",
+      "Impact": "USN rollback can cause permanent replication failures and data loss.",
+      "Probability": "Very Low",
+      "Effort": "High",
+      "ScriptPath": "../Checks/Replication/Test-USNRollback.ps1",
+      "EvaluationRules": {
+        "Rules": [
+          {
+            "Condition": "RollbackDetected == true",
+            "Status": "Fail",
+            "Title": "USN Rollback Detected",
+            "Description": "Critical: Potential USN rollback scenario identified"
+          }
+        ]
+      },
+      "RemediationSteps": "1. STOP - Do not attempt to fix without expert guidance\n2. Identify affected DC\n3. Isolate DC from network\n4. Contact Microsoft Support\n5. May require DC rebuild",
+      "KBArticles": [
+        "https://docs.microsoft.com/troubleshoot/windows-server/identity/detect-and-recover-from-usn-rollback"
+      ],
+      "Tags": ["Replication", "Critical", "USN", "DataCorruption"],
+      "IsEnabled": true,
+      "Version": "1.0"
+    }
+  ]
+}

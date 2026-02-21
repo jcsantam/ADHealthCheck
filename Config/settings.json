@@ -1,0 +1,128 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "AD Health Check - Global Settings",
+  "description": "Global configuration settings for AD Health Check execution",
+  
+  "execution": {
+    "maxParallelJobs": 10,
+    "executionTimeoutSeconds": 300,
+    "retryFailedChecks": true,
+    "maxRetries": 2,
+    "retryDelaySeconds": 5
+  },
+  
+  "logging": {
+    "level": "Information",
+    "logToFile": true,
+    "logToConsole": true,
+    "logFilePath": "../Output/logs/healthcheck.log",
+    "maxLogSizeMB": 50,
+    "maxLogFiles": 10
+  },
+  
+  "database": {
+    "path": "../Output/healthcheck.db",
+    "autoVacuum": true,
+    "retentionDays": 90,
+    "autoCleanup": true,
+    "backupBeforeCleanup": true
+  },
+  
+  "discovery": {
+    "discoverForest": true,
+    "discoverAllDomains": true,
+    "discoverAllDCs": true,
+    "discoverSites": true,
+    "discoverSubnets": true,
+    "discoverFSMORoles": true,
+    "discoverTrusts": true,
+    "includeDCPerformanceCounters": true,
+    "connectionTimeoutSeconds": 30
+  },
+  
+  "checks": {
+    "enabledCategories": [
+      "Replication",
+      "DCHealth",
+      "DNS",
+      "GPO",
+      "Time",
+      "Backup",
+      "Security",
+      "Database",
+      "Operational"
+    ],
+    "skipChecks": [],
+    "customCheckPaths": []
+  },
+  
+  "scoring": {
+    "algorithm": "weighted",
+    "severityWeights": {
+      "critical": 10,
+      "high": 5,
+      "medium": 2,
+      "low": 1,
+      "informational": 0
+    },
+    "categoryWeights": {
+      "Replication": 25,
+      "DCHealth": 20,
+      "DNS": 15,
+      "GPO": 10,
+      "Time": 10,
+      "Backup": 10,
+      "Security": 5,
+      "Database": 3,
+      "Operational": 2
+    }
+  },
+  
+  "reporting": {
+    "generateHTML": true,
+    "generateJSON": true,
+    "generateCSV": false,
+    "includeFullDetails": true,
+    "includeTrendGraphs": false,
+    "emailReportOnCompletion": false,
+    "emailSettings": {
+      "smtpServer": "",
+      "smtpPort": 587,
+      "useSsl": true,
+      "from": "",
+      "to": [],
+      "subject": "AD Health Check Report - {ForestName} - {Date}"
+    }
+  },
+  
+  "notifications": {
+    "notifyOnCriticalIssues": false,
+    "notifyOnNewIssues": false,
+    "notificationChannels": {
+      "email": {
+        "enabled": false,
+        "recipients": []
+      },
+      "webhook": {
+        "enabled": false,
+        "url": "",
+        "method": "POST"
+      }
+    }
+  },
+  
+  "performance": {
+    "enablePerfCounterCollection": true,
+    "perfCounterSampleIntervalSeconds": 5,
+    "perfCounterSampleCount": 3
+  },
+  
+  "advanced": {
+    "useCredentials": false,
+    "credentialUsername": "",
+    "credentialDomain": "",
+    "verboseOutput": false,
+    "debugMode": false,
+    "dryRun": false
+  }
+}
