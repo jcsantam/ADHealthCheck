@@ -161,7 +161,7 @@ try {
             $results += $result
         }
         catch {
-            Write-Warning "[TIME-001] Failed to query time configuration on PDC $pdcName: $($_.Exception.Message)"
+            Write-Warning "[TIME-001] Failed to query time configuration on PDC ${pdcName}: $($_.Exception.Message)"
             
             $results += [PSCustomObject]@{
                 Domain = $domain.Name

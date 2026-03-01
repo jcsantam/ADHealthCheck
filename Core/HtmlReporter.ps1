@@ -484,7 +484,7 @@ function Export-EnhancedHtmlReport {
     <div class="container">
         <!-- HEADER -->
         <div class="header">
-            <h1>ðŸ” Active Directory Health Check Report</h1>
+            <h1>Active Directory Health Check Report</h1>
             <div class="subtitle">$($Summary.ForestName)</div>
             <div class="metadata">
                 Generated: $reportTime | Run ID: $($Summary.RunId.Substring(0,8))... | Executed by: $($Summary.ExecutedBy)@$($Summary.ExecutionHost)
@@ -664,7 +664,7 @@ function Export-EnhancedHtmlReport {
 "@
     
     # Write to file
-    $html | Out-File -FilePath $Path -Encoding UTF8 -Force
+    [System.IO.File]::WriteAllText($Path, $html, [System.Text.Encoding]::UTF8)
     
     Write-Verbose "Enhanced HTML report exported to: $Path"
 }

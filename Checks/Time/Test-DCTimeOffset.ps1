@@ -69,7 +69,7 @@ try {
             Write-Verbose "[TIME-002] PDC $pdcName time: $pdcTime"
         }
         catch {
-            Write-Warning "[TIME-002] Failed to get time from PDC $pdcName: $($_.Exception.Message)"
+            Write-Warning "[TIME-002] Failed to get time from PDC ${pdcName}: $($_.Exception.Message)"
             continue
         }
         

@@ -296,6 +296,11 @@ function Invoke-HealthCheckEngine {
         Write-LogInfo "  Total Duration: $([math]::Round($totalDuration, 2))s" -Category "Engine"
         Write-LogInfo "  Reports: $reportPath" -Category "Engine"
         
+        # Add report path to summary
+        $runSummary | Add-Member -NotePropertyName 'ReportPath' -NotePropertyValue $reportPath -Force
+        
+        # Close database connection
+        
         # Close database connection
         Close-DatabaseConnection -Connection $dbConnection
         

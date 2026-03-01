@@ -174,12 +174,7 @@ function Invoke-RuleEvaluation {
     # Parse evaluation rules from check definition
     $evaluationRules = $null
     if ($CheckDefinition.EvaluationRules) {
-        try {
-            $evaluationRules = $CheckDefinition.EvaluationRules | ConvertFrom-Json
-        }
-        catch {
-            Write-LogWarning "Failed to parse evaluation rules for $($CheckDefinition.CheckId): $($_.Exception.Message)" -Category "Evaluator"
-        }
+        $evaluationRules = $CheckDefinition.EvaluationRules
     }
     
     # Default evaluation result
@@ -313,6 +308,18 @@ function Test-RuleCondition {
     <#
     .SYNOPSIS
         Tests if a rule condition evaluates to true
+    .DESCRIPTION
+        Proper condition parser supporting:
+        - Any(Property == 'value')
+        - Any(Property > number)
+        - Property == value
+        - Property != value
+        - Property > number
+        - Property < number
+        - Property >= number
+        - Property <= number
+        - true/false/null literals
+        - Threshold references (CriticalThreshold, WarningThreshold)
     #>
     
     param(
@@ -322,44 +329,275 @@ function Test-RuleCondition {
         [Parameter(Mandatory = $true)]
         $Data,
         
-        [Parameter(Mandatory = $true)]
+        [Parameter(Mandatory = $false)]
         $Thresholds
     )
     
-    # Simple expression evaluation
-    # This is a simplified implementation - in production you'd use a proper expression parser
-    
-    # Replace placeholders with actual values
-    $expression = $Condition
-    
-    # Handle common patterns
-    if ($Data -is [System.Collections.IEnumerable] -and $Data -isnot [string]) {
-        # For collections
-        $expression = $expression -replace 'Count', $Data.Count
-        $expression = $expression -replace 'Any\(\s*(\w+)\s*==\s*([^\)]+)\)', 
-            { param($m) 
-                $prop = $m.Groups[1].Value
-                $val = $m.Groups[2].Value
-                $hasMatch = $Data | Where-Object { $_.$prop -eq $val }
-                return ($hasMatch.Count -gt 0)
-            }
-    }
-    else {
-        # For single objects, replace property references
-        foreach ($prop in $Data.PSObject.Properties) {
-            $expression = $expression -replace "\b$($prop.Name)\b", $prop.Value
-        }
-    }
-    
-    # Evaluate the expression
     try {
-        $result = Invoke-Expression $expression
-        return [bool]$result
+        $condition = $Condition.Trim()
+        
+        # =====================================================================
+        # Handle Any() - collection pattern
+        # Any(Property operator value)
+        # =====================================================================
+        if ($condition -match '^Any\((.+)\)$') {
+            $innerCondition = $matches[1].Trim()
+            
+            # Ensure Data is a collection
+            $collection = @($Data)
+            if ($collection.Count -eq 0) { return $false }
+            
+            foreach ($item in $collection) {
+                if (Test-SingleCondition -Condition $innerCondition -Item $item -Thresholds $Thresholds) {
+                    return $true
+                }
+            }
+            return $false
+        }
+        
+        # =====================================================================
+        # Handle All() - all items must match
+        # =====================================================================
+        if ($condition -match '^All\((.+)\)$') {
+            $innerCondition = $matches[1].Trim()
+            $collection = @($Data)
+            if ($collection.Count -eq 0) { return $false }
+            
+            foreach ($item in $collection) {
+                if (-not (Test-SingleCondition -Condition $innerCondition -Item $item -Thresholds $Thresholds)) {
+                    return $false
+                }
+            }
+            return $true
+        }
+        
+        # =====================================================================
+        # Handle None() - no items match
+        # =====================================================================
+        if ($condition -match '^None\((.+)\)$') {
+            $innerCondition = $matches[1].Trim()
+            $collection = @($Data)
+            
+            foreach ($item in $collection) {
+                if (Test-SingleCondition -Condition $innerCondition -Item $item -Thresholds $Thresholds) {
+                    return $false
+                }
+            }
+            return $true
+        }
+        
+        # =====================================================================
+        # Handle Count() comparisons
+        # Count > 0, Count == 0, etc.
+        # =====================================================================
+        if ($condition -match '^Count\s*(==|!=|>|<|>=|<=)\s*(.+)$') {
+            $operator = $matches[1]
+            $compareValue = Resolve-ConditionValue -Value $matches[2].Trim() -Item $null -Thresholds $Thresholds
+            $count = @($Data).Count
+            return (Compare-Values -Left $count -Operator $operator -Right $compareValue)
+        }
+        
+        # =====================================================================
+        # Handle direct property conditions on single object or collection
+        # =====================================================================
+        # Try as single object first
+        $dataItem = $Data
+        if ($Data -is [System.Collections.IEnumerable] -and $Data -isnot [string]) {
+            $dataItem = @($Data) | Select-Object -First 1
+        }
+        
+        return (Test-SingleCondition -Condition $condition -Item $dataItem -Thresholds $Thresholds)
     }
     catch {
         Write-LogVerbose "Failed to evaluate condition: $Condition - $($_.Exception.Message)" -Category "Evaluator"
         return $false
     }
+}
+
+# =============================================================================
+# FUNCTION: Test-SingleCondition
+# Purpose: Evaluate a simple condition against a single data item
+# =============================================================================
+function Test-SingleCondition {
+    param(
+        [string]$Condition,
+        $Item,
+        $Thresholds
+    )
+    
+    $condition = $Condition.Trim()
+    
+    # Pattern: Property operator Value
+    # Supports: == != > < >= <=
+    if ($condition -match '^(.+?)\s*(==|!=|>=|<=|>|<)\s*(.+)$') {
+        $propName  = $matches[1].Trim()
+        $operator  = $matches[2].Trim()
+        $rawRight  = $matches[3].Trim()
+        
+        # Resolve left side (property value)
+        $leftValue = Resolve-PropertyValue -PropertyName $propName -Item $Item -Thresholds $Thresholds
+        
+        # Resolve right side (literal, threshold, or null)
+        $rightValue = Resolve-ConditionValue -Value $rawRight -Item $Item -Thresholds $Thresholds
+        
+        return (Compare-Values -Left $leftValue -Operator $operator -Right $rightValue)
+    }
+    
+    # Boolean shorthand: just a property name = check if truthy
+    if ($condition -match '^(\w+)$') {
+        $val = Resolve-PropertyValue -PropertyName $condition -Item $Item -Thresholds $Thresholds
+        return [bool]$val
+    }
+    
+    return $false
+}
+
+# =============================================================================
+# FUNCTION: Resolve-PropertyValue
+# Purpose: Get property value from data item or thresholds
+# =============================================================================
+function Resolve-PropertyValue {
+    param(
+        [string]$PropertyName,
+        $Item,
+        $Thresholds
+    )
+    
+    # Check thresholds first
+    $thresholdValue = Resolve-ConditionValue -Value $PropertyName -Item $Item -Thresholds $Thresholds -ThresholdOnly
+    if ($null -ne $thresholdValue) { return $thresholdValue }
+    
+    # Check item properties
+    if ($null -ne $Item) {
+        try {
+            $propValue = $Item.$PropertyName
+            if ($null -ne $propValue) { return $propValue }
+        }
+        catch { }
+        
+        # Try PSObject.Properties for safety
+        if ($Item.PSObject.Properties[$PropertyName]) {
+            return $Item.PSObject.Properties[$PropertyName].Value
+        }
+    }
+    
+    return $null
+}
+
+# =============================================================================
+# FUNCTION: Resolve-ConditionValue
+# Purpose: Resolve a value string to actual typed value
+# =============================================================================
+function Resolve-ConditionValue {
+    param(
+        [string]$Value,
+        $Item,
+        $Thresholds,
+        [switch]$ThresholdOnly
+    )
+    
+    $v = $Value.Trim()
+    
+    # Threshold references
+    if ($v -eq 'CriticalThreshold' -and $Thresholds) {
+        $t = $Thresholds.backup.backupAgeCriticalDays
+        if ($null -ne $t) { return $t }
+        return 30
+    }
+    if ($v -eq 'WarningThreshold' -and $Thresholds) {
+        $t = $Thresholds.backup.backupAgeWarningDays
+        if ($null -ne $t) { return $t }
+        return 14
+    }
+    
+    if ($ThresholdOnly) { return $null }
+    
+    # null literal
+    if ($v -eq 'null') { return $null }
+    
+    # Boolean literals
+    if ($v -eq 'true')  { return $true }
+    if ($v -eq 'false') { return $false }
+    
+    # Quoted string: 'value' or "value"
+    if ($v -match "^'(.+)'$" -or $v -match '^"(.+)"$') {
+        return $matches[1]
+    }
+    
+    # Numeric
+    $num = $null
+    if ([double]::TryParse($v, [ref]$num)) { return $num }
+    
+    # Math expression like (DatabaseSizeGB * 1.25)
+    if ($v -match '^\((.+)\)$') {
+        $inner = $matches[1]
+        if ($inner -match '^(.+?)\s*\*\s*(.+)$') {
+            $left  = Resolve-ConditionValue -Value $matches[1].Trim() -Item $Item -Thresholds $Thresholds
+            $right = Resolve-ConditionValue -Value $matches[2].Trim() -Item $Item -Thresholds $Thresholds
+            if ($null -ne $left -and $null -ne $right) {
+                return ([double]$left * [double]$right)
+            }
+        }
+    }
+    
+    # Property reference — look up on item
+    if ($null -ne $Item -and $v -match '^\w+$') {
+        try {
+            $pval = $Item.$v
+            if ($null -ne $pval) { return $pval }
+        }
+        catch { }
+    }
+    
+    # Return as string fallback
+    return $v
+}
+
+# =============================================================================
+# FUNCTION: Compare-Values
+# Purpose: Compare two values with an operator
+# =============================================================================
+function Compare-Values {
+    param(
+        $Left,
+        [string]$Operator,
+        $Right
+    )
+    
+    # Handle null comparisons
+    if ($Operator -eq '==' -and $null -eq $Right) { return ($null -eq $Left) }
+    if ($Operator -eq '!=' -and $null -eq $Right) { return ($null -ne $Left) }
+    if ($null -eq $Left) { return $false }
+    
+    # Try numeric comparison
+    $leftNum  = $null
+    $rightNum = $null
+    $isNumeric = ([double]::TryParse([string]$Left,  [ref]$leftNum) -and
+                  [double]::TryParse([string]$Right, [ref]$rightNum))
+    
+    switch ($Operator) {
+        '==' {
+            if ($isNumeric) { return ($leftNum -eq $rightNum) }
+            # Boolean comparison
+            if ($Right -is [bool] -or $Left -is [bool]) {
+                return ([bool]$Left -eq [bool]$Right)
+            }
+            return ([string]$Left -eq [string]$Right)
+        }
+        '!=' {
+            if ($isNumeric) { return ($leftNum -ne $rightNum) }
+            if ($Right -is [bool] -or $Left -is [bool]) {
+                return ([bool]$Left -ne [bool]$Right)
+            }
+            return ([string]$Left -ne [string]$Right)
+        }
+        '>'  { if ($isNumeric) { return ($leftNum -gt $rightNum) }; return $false }
+        '<'  { if ($isNumeric) { return ($leftNum -lt $rightNum) }; return $false }
+        '>=' { if ($isNumeric) { return ($leftNum -ge $rightNum) }; return $false }
+        '<=' { if ($isNumeric) { return ($leftNum -le $rightNum) }; return $false }
+    }
+    
+    return $false
 }
 
 # =============================================================================
@@ -387,18 +625,40 @@ function Get-SeverityFromStatus {
 function Get-AffectedObject {
     param($Data, $Rule)
     
-    # Try to find object identifier in various common properties
-    $possibleProperties = @('Name', 'ComputerName', 'ServerName', 'DomainController', 'DN', 'DistinguishedName')
+    $possibleProperties = @('Name', 'HostName', 'ComputerName', 'ServerName', 
+                            'DomainController', 'PDC', 'DC', 'Domain',
+                            'DN', 'DistinguishedName', 'SamAccountName')
     
-    foreach ($prop in $possibleProperties) {
-        if ($Data.$prop) {
-            return $Data.$prop
+    # If collection, check first item then return count summary
+    if ($Data -is [System.Collections.IEnumerable] -and $Data -isnot [string]) {
+        $collection = @($Data)
+        if ($collection.Count -eq 0) { return "N/A" }
+        
+        # Try to get name from first item
+        $firstItem = $collection[0]
+        foreach ($prop in $possibleProperties) {
+            try {
+                $val = $firstItem.$prop
+                if ($val) {
+                    if ($collection.Count -gt 1) {
+                        return "$val (+$($collection.Count - 1) more)"
+                    }
+                    return "$val"
+                }
+            }
+            catch { }
         }
+        
+        return "$($collection.Count) objects"
     }
     
-    # If it's a collection, return count
-    if ($Data -is [System.Collections.IEnumerable] -and $Data -isnot [string]) {
-        return "$($Data.Count) objects"
+    # Single object
+    foreach ($prop in $possibleProperties) {
+        try {
+            $val = $Data.$prop
+            if ($val) { return "$val" }
+        }
+        catch { }
     }
     
     return "N/A"

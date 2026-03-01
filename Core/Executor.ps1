@@ -113,31 +113,10 @@ function Invoke-ParallelCheckExecution {
                         throw "Check script not found: $($CheckDef.ScriptPath)"
                     }
                     
-                    # Execute check script with timeout
-                    $job = Start-Job -ScriptBlock {
-                        param($ScriptPath, $Inventory)
-                        & $ScriptPath -Inventory $Inventory
-                    } -ArgumentList $CheckDef.ScriptPath, $InvData
-                    
-                    # Wait for completion or timeout
-                    $completed = Wait-Job -Job $job -Timeout $Timeout
-                    
-                    if ($completed) {
-                        # Job completed within timeout
-                        $result.RawOutput = Receive-Job -Job $job
-                        $result.Status = 'Completed'
-                        $result.ExitCode = 0
-                    }
-                    else {
-                        # Job timed out
-                        Stop-Job -Job $job
-                        $result.Status = 'Error'
-                        $result.ErrorMessage = "Check execution timed out after ${Timeout} seconds"
-                        $result.TimedOut = $true
-                        $result.ExitCode = -1
-                    }
-                    
-                    Remove-Job -Job $job -Force
+                    # Execute check script directly in runspace (no nested job)
+                    $result.RawOutput = & $CheckDef.ScriptPath -Inventory $InvData
+                    $result.Status = 'Completed'
+                    $result.ExitCode = 0
                 }
                 catch {
                     $result.Status = 'Error'
