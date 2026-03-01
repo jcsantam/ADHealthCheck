@@ -201,10 +201,21 @@ function Invoke-HealthCheckEngine {
         
         Write-LogInfo "`n===== PHASE 6: HEALTH SCORING =====" -Category "Engine"
         
+        # Convert PSCustomObject to Hashtable (PS 5.1 - ConvertFrom-Json returns PSCustomObject)
+        $severityWeightsHash = @{}
+        $config.scoring.severityWeights.PSObject.Properties | ForEach-Object {
+            $severityWeightsHash[$_.Name] = $_.Value
+        }
+
+        $categoryWeightsHash = @{}
+        $config.scoring.categoryWeights.PSObject.Properties | ForEach-Object {
+            $categoryWeightsHash[$_.Name] = $_.Value
+        }
+
         $scores = Invoke-HealthScoring `
             -EvaluatedResults $evaluatedResults `
-            -SeverityWeights $config.scoring.severityWeights `
-            -CategoryWeights $config.scoring.categoryWeights
+            -SeverityWeights $severityWeightsHash `
+            -CategoryWeights $categoryWeightsHash
         
         # Save scores to database
         Save-ScoresToDatabase -RunId $runId -Scores $scores -Connection $dbConnection
@@ -225,14 +236,14 @@ function Invoke-HealthCheckEngine {
             ExecutionHost = $env:COMPUTERNAME
             Status = 'Completed'
             OverallScore = $scores.OverallScore
-            TotalChecks = $checkResults.Count
-            PassedChecks = ($evaluatedResults | Where-Object { $_.EvaluationStatus -eq 'Pass' }).Count
-            WarningChecks = ($evaluatedResults | Where-Object { $_.EvaluationStatus -eq 'Warning' }).Count
-            FailedChecks = ($evaluatedResults | Where-Object { $_.EvaluationStatus -eq 'Fail' }).Count
-            CriticalIssues = ($evaluatedResults | ForEach-Object { $_.Issues } | Where-Object { $_.Severity -eq 'Critical' }).Count
-            HighIssues = ($evaluatedResults | ForEach-Object { $_.Issues } | Where-Object { $_.Severity -eq 'High' }).Count
-            MediumIssues = ($evaluatedResults | ForEach-Object { $_.Issues } | Where-Object { $_.Severity -eq 'Medium' }).Count
-            LowIssues = ($evaluatedResults | ForEach-Object { $_.Issues } | Where-Object { $_.Severity -eq 'Low' }).Count
+            TotalChecks = @($checkResults).Count
+            PassedChecks = @($evaluatedResults | Where-Object { $_.EvaluationStatus -eq 'Pass' }).Count
+            WarningChecks = @($evaluatedResults | Where-Object { $_.EvaluationStatus -eq 'Warning' }).Count
+            FailedChecks = @($evaluatedResults | Where-Object { $_.EvaluationStatus -eq 'Fail' }).Count
+            CriticalIssues = @($evaluatedResults | ForEach-Object { $_.Issues } | Where-Object { $_.Severity -eq 'Critical' }).Count
+            HighIssues = @($evaluatedResults | ForEach-Object { $_.Issues } | Where-Object { $_.Severity -eq 'High' }).Count
+            MediumIssues = @($evaluatedResults | ForEach-Object { $_.Issues } | Where-Object { $_.Severity -eq 'Medium' }).Count
+            LowIssues = @($evaluatedResults | ForEach-Object { $_.Issues } | Where-Object { $_.Severity -eq 'Low' }).Count
         }
         
         # Update run record in database

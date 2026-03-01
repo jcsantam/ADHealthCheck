@@ -194,7 +194,7 @@ try {
     Write-Host ""
     
     Write-Host "  Report saved to:" -ForegroundColor White
-    Write-Host "    $($result.ReportPath)" -ForegroundColor Cyan
+    Write-Host "    $($result.ReportDirectory)" -ForegroundColor Cyan
     Write-Host ""
     
     # Exit code based on critical issues

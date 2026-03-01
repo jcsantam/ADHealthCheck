@@ -51,7 +51,7 @@ function Invoke-HealthScoring {
         [array]$EvaluatedResults,
         
         [Parameter(Mandatory = $false)]
-        [hashtable]$SeverityWeights = @{
+        $SeverityWeights = @{
             'Critical' = 10
             'High' = 5
             'Medium' = 2
@@ -60,7 +60,7 @@ function Invoke-HealthScoring {
         },
         
         [Parameter(Mandatory = $false)]
-        [hashtable]$CategoryWeights = @{
+        $CategoryWeights = @{
             'Replication' = 25
             'DCHealth' = 20
             'DNS' = 15
@@ -144,7 +144,7 @@ function Get-CategoryScore {
         [array]$Results,
         
         [Parameter(Mandatory = $true)]
-        [hashtable]$SeverityWeights
+        $SeverityWeights
     )
     
     # Base score starts at 100
@@ -152,10 +152,10 @@ function Get-CategoryScore {
     $deductions = 0
     
     # Count checks by status
-    $totalChecks = $Results.Count
-    $passedChecks = ($Results | Where-Object { $_.EvaluationStatus -eq 'Pass' }).Count
-    $warningChecks = ($Results | Where-Object { $_.EvaluationStatus -eq 'Warning' }).Count
-    $failedChecks = ($Results | Where-Object { $_.EvaluationStatus -eq 'Fail' }).Count
+    $totalChecks = @($Results).Count
+    $passedChecks = @($Results | Where-Object { $_.EvaluationStatus -eq 'Pass' }).Count
+    $warningChecks = @($Results | Where-Object { $_.EvaluationStatus -eq 'Warning' }).Count
+    $failedChecks = @($Results | Where-Object { $_.EvaluationStatus -eq 'Fail' }).Count
     
     # Count issues by severity
     $allIssues = $Results | ForEach-Object { $_.Issues } | Where-Object { $_ }
@@ -211,8 +211,8 @@ function Get-OverallScore {
         [Parameter(Mandatory = $true)]
         [array]$CategoryScores,
         
-        [Parameter(Mandatory = $true)]
-        [hashtable]$CategoryWeights
+       [Parameter(Mandatory = $true)]
+        $CategoryWeights
     )
     
     # Calculate weighted average

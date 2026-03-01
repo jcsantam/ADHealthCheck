@@ -565,7 +565,7 @@ function Export-EnhancedHtmlReport {
 "@
     
     # Issues table (if any issues exist)
-    if ($allIssues.Count -gt 0) {
+    if (@($allIssues).Count -gt 0) {
         $html += @"
         
         <!-- ISSUES TABLE -->
