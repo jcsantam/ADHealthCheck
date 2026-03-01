@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Enhanced HTML Report Generator
 
@@ -484,7 +484,7 @@ function Export-EnhancedHtmlReport {
     <div class="container">
         <!-- HEADER -->
         <div class="header">
-            <h1>🔍 Active Directory Health Check Report</h1>
+            <h1>ðŸ” Active Directory Health Check Report</h1>
             <div class="subtitle">$($Summary.ForestName)</div>
             <div class="metadata">
                 Generated: $reportTime | Run ID: $($Summary.RunId.Substring(0,8))... | Executed by: $($Summary.ExecutedBy)@$($Summary.ExecutionHost)
@@ -681,4 +681,3 @@ function Get-ScoreRating {
     else { return "Critical" }
 }
 
-Export-ModuleMember -Function Export-EnhancedHtmlReport

@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Parallel check execution engine
 
@@ -229,9 +229,9 @@ function Invoke-ParallelCheckExecution {
         
         # Calculate execution summary
         $executionDuration = ((Get-Date) - $executionStart).TotalSeconds
-        $successCount = ($results | Where-Object { $_.Status -eq 'Completed' }).Count
-        $errorCount = ($results | Where-Object { $_.Status -eq 'Error' }).Count
-        $timeoutCount = ($results | Where-Object { $_.TimedOut -eq $true }).Count
+        $successCount = @($results | Where-Object { $_.Status -eq 'Completed' }).Count
+        $errorCount = @($results | Where-Object { $_.Status -eq 'Error' }).Count
+        $timeoutCount = @($results | Where-Object { $_.TimedOut -eq $true }).Count
         
         Write-LogInfo "Parallel execution completed" -Category "Executor"
         Write-LogInfo "  Total checks: $totalChecks" -Category "Executor"
@@ -370,7 +370,5 @@ function Invoke-SequentialCheckExecution {
 # EXPORT MODULE MEMBERS
 # =============================================================================
 
-Export-ModuleMember -Function @(
-    'Invoke-ParallelCheckExecution',
-    'Invoke-SequentialCheckExecution'
-)
+
+

@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Database operations module for AD Health Check
 
@@ -592,15 +592,5 @@ INSERT INTO Inventory (
 # EXPORT MODULE MEMBERS
 # =============================================================================
 
-Export-ModuleMember -Function @(
-    'Initialize-DatabaseConnection',
-    'Close-DatabaseConnection',
-    'Invoke-DatabaseCommand',
-    'Invoke-DatabaseQuery',
-    'New-RunRecord',
-    'Update-RunRecord',
-    'Save-CheckResult',
-    'Save-Issue',
-    'Save-Score',
-    'Save-InventoryItem'
-)
+
+

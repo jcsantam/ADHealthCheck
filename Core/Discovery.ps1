@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Active Directory topology discovery module
 
@@ -118,10 +118,10 @@ function Invoke-ADDiscovery {
         $inventory.GlobalCatalogs = $inventory.DomainControllers | Where-Object { $_.IsGlobalCatalog -eq $true }
         
         # Calculate statistics
-        $inventory.Statistics.TotalDCs = $inventory.DomainControllers.Count
-        $inventory.Statistics.TotalSites = $inventory.Sites.Count
-        $inventory.Statistics.TotalSubnets = $inventory.Subnets.Count
-        $inventory.Statistics.TotalDomains = $inventory.Domains.Count
+        $inventory.Statistics.TotalDCs = @($inventory.DomainControllers).Count
+        $inventory.Statistics.TotalSites = @($inventory.Sites).Count
+        $inventory.Statistics.TotalSubnets = @($inventory.Subnets).Count
+        $inventory.Statistics.TotalDomains = @($inventory.Domains).Count
         $inventory.Statistics.DiscoveryDurationSeconds = ((Get-Date) - $discoveryStart).TotalSeconds
         
         Write-LogInfo "Discovery completed successfully" -Category "Discovery"
@@ -572,6 +572,5 @@ function Get-TrustInfo {
 # EXPORT MODULE MEMBERS
 # =============================================================================
 
-Export-ModuleMember -Function @(
-    'Invoke-ADDiscovery'
-)
+
+

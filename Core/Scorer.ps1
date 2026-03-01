@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Health scoring algorithm
 
@@ -161,10 +161,10 @@ function Get-CategoryScore {
     $allIssues = $Results | ForEach-Object { $_.Issues } | Where-Object { $_ }
     $issuesBySeverity = $allIssues | Group-Object -Property Severity
     
-    $criticalCount = ($issuesBySeverity | Where-Object { $_.Name -eq 'Critical' } | Select-Object -ExpandProperty Count -ErrorAction SilentlyContinue) ?? 0
-    $highCount = ($issuesBySeverity | Where-Object { $_.Name -eq 'High' } | Select-Object -ExpandProperty Count -ErrorAction SilentlyContinue) ?? 0
-    $mediumCount = ($issuesBySeverity | Where-Object { $_.Name -eq 'Medium' } | Select-Object -ExpandProperty Count -ErrorAction SilentlyContinue) ?? 0
-    $lowCount = ($issuesBySeverity | Where-Object { $_.Name -eq 'Low' } | Select-Object -ExpandProperty Count -ErrorAction SilentlyContinue) ?? 0
+    $criticalCount = ($issuesBySeverity | Where-Object { $_.Name -eq 'Critical' } | Select-Object -ExpandProperty Count -ErrorAction SilentlyContinue); if ($null -eq $criticalCount) { $criticalCount = 0 }
+    $highCount = ($issuesBySeverity | Where-Object { $_.Name -eq 'High' } | Select-Object -ExpandProperty Count -ErrorAction SilentlyContinue); if ($null -eq $highCount) { $highCount = 0 }
+    $mediumCount = ($issuesBySeverity | Where-Object { $_.Name -eq 'Medium' } | Select-Object -ExpandProperty Count -ErrorAction SilentlyContinue); if ($null -eq $mediumCount) { $mediumCount = 0 }
+    $lowCount = ($issuesBySeverity | Where-Object { $_.Name -eq 'Low' } | Select-Object -ExpandProperty Count -ErrorAction SilentlyContinue); if ($null -eq $lowCount) { $lowCount = 0 }
     
     # Calculate deductions based on severity weights
     $deductions += $criticalCount * $SeverityWeights['Critical']
@@ -362,8 +362,5 @@ function Get-TrendIndicator {
 # EXPORT MODULE MEMBERS
 # =============================================================================
 
-Export-ModuleMember -Function @(
-    'Invoke-HealthScoring',
-    'Get-ScoreRating',
-    'Compare-Scores'
-)
+
+

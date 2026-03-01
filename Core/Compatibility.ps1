@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Compatibility Detection and Abstraction Layer
 
@@ -371,13 +371,5 @@ function Get-CompatibilityReport {
 # EXPORT MODULE MEMBERS
 # =============================================================================
 
-Export-ModuleMember -Function @(
-    'Initialize-CompatibilityLayer',
-    'Get-CompatibleSystemInfo',
-    'Get-CompatibleProcessInfo',
-    'Get-CompatibleServiceInfo',
-    'Get-CompatibleEventLog',
-    'Get-CompatibleReplicationInfo',
-    'Test-SysvolReplicationMethod',
-    'Get-CompatibilityReport'
-)
+
+

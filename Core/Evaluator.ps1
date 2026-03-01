@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Rule-based result evaluation engine
 
@@ -136,9 +136,9 @@ function Invoke-ResultEvaluation {
     }
     
     # Summary statistics
-    $passCount = ($evaluatedResults | Where-Object { $_.EvaluationStatus -eq 'Pass' }).Count
-    $warnCount = ($evaluatedResults | Where-Object { $_.EvaluationStatus -eq 'Warning' }).Count
-    $failCount = ($evaluatedResults | Where-Object { $_.EvaluationStatus -eq 'Fail' }).Count
+    $passCount = @($evaluatedResults | Where-Object { $_.EvaluationStatus -eq 'Pass' }).Count
+    $warnCount = @($evaluatedResults | Where-Object { $_.EvaluationStatus -eq 'Warning' }).Count
+    $failCount = @($evaluatedResults | Where-Object { $_.EvaluationStatus -eq 'Fail' }).Count
     $totalIssues = ($evaluatedResults | Measure-Object -Property IssueCount -Sum).Sum
     
     Write-LogInfo "Result evaluation completed" -Category "Evaluator"
@@ -408,6 +408,5 @@ function Get-AffectedObject {
 # EXPORT MODULE MEMBERS
 # =============================================================================
 
-Export-ModuleMember -Function @(
-    'Invoke-ResultEvaluation'
-)
+
+

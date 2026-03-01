@@ -75,18 +75,16 @@ $scriptStart = Get-Date
 # BANNER
 # =============================================================================
 
-Write-Host @"
-
-╔══════════════════════════════════════════════════════════════════╗
-║                                                                  ║
-║             AD HEALTH CHECK - ENTERPRISE EDITION                 ║
-║                      Version $scriptVersion                              ║
-║                                                                  ║
-║  Comprehensive Active Directory Infrastructure Analysis          ║
-║                                                                  ║
-╚══════════════════════════════════════════════════════════════════╝
-
-"@ -ForegroundColor Cyan
+Write-Host ""
+Write-Host "================================================================" -ForegroundColor Cyan
+Write-Host "                                                                " -ForegroundColor Cyan
+Write-Host "             AD HEALTH CHECK - ENTERPRISE EDITION               " -ForegroundColor Cyan
+Write-Host "                      Version $scriptVersion                    " -ForegroundColor Cyan
+Write-Host "                                                                " -ForegroundColor Cyan
+Write-Host "  Comprehensive Active Directory Infrastructure Analysis       " -ForegroundColor Cyan
+Write-Host "                                                                " -ForegroundColor Cyan
+Write-Host "================================================================" -ForegroundColor Cyan
+Write-Host ""
 
 # =============================================================================
 # PRE-FLIGHT CHECKS
@@ -124,7 +122,8 @@ if (-not $isAdmin) {
     Write-Host "  Some checks may fail without administrative privileges" -ForegroundColor Yellow
 }
 
-Write-Host "  Pre-flight checks complete`n" -ForegroundColor Green
+Write-Host "  Pre-flight checks complete" -ForegroundColor Green
+Write-Host ""
 
 # =============================================================================
 # LOAD CORE ENGINE
@@ -141,7 +140,8 @@ if (-not (Test-Path $enginePath)) {
 
 try {
     . $enginePath
-    Write-Host "  Core engine loaded successfully`n" -ForegroundColor Green
+    Write-Host "  Core engine loaded successfully" -ForegroundColor Green
+    Write-Host ""
 }
 catch {
     Write-Host "  ERROR: Failed to load core engine: $($_.Exception.Message)" -ForegroundColor Red
@@ -163,9 +163,11 @@ try {
     # Display summary
     $duration = ((Get-Date) - $scriptStart).TotalSeconds
     
-    Write-Host "`n╔══════════════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
-    Write-Host "║                    EXECUTION SUMMARY                             ║" -ForegroundColor Cyan
-    Write-Host "╚══════════════════════════════════════════════════════════════════╝`n" -ForegroundColor Cyan
+    Write-Host ""
+    Write-Host "================================================================" -ForegroundColor Cyan
+    Write-Host "                    EXECUTION SUMMARY                           " -ForegroundColor Cyan
+    Write-Host "================================================================" -ForegroundColor Cyan
+    Write-Host ""
     
     Write-Host "  Run ID:           $($result.RunId)" -ForegroundColor White
     Write-Host "  Forest:           $($result.ForestName)" -ForegroundColor White
@@ -174,20 +176,25 @@ try {
         elseif ($result.OverallScore -ge 70) { 'Yellow' }
         else { 'Red' }
     )
-    Write-Host "  Duration:         $([math]::Round($duration, 2))s`n" -ForegroundColor White
+    Write-Host "  Duration:         $([math]::Round($duration, 2))s" -ForegroundColor White
+    Write-Host ""
     
     Write-Host "  Checks Summary:" -ForegroundColor White
     Write-Host "    Total:          $($result.TotalChecks)" -ForegroundColor Gray
     Write-Host "    Passed:         $($result.PassedChecks)" -ForegroundColor Green
     Write-Host "    Warning:        $($result.WarningChecks)" -ForegroundColor Yellow
     Write-Host "    Failed:         $($result.FailedChecks)" -ForegroundColor Red
-    Write-Host "" -ForegroundColor White
+    Write-Host ""
     
     Write-Host "  Issues Detected:" -ForegroundColor White
     Write-Host "    Critical:       $($result.CriticalIssues)" -ForegroundColor Red
     Write-Host "    High:           $($result.HighIssues)" -ForegroundColor DarkRed
     Write-Host "    Medium:         $($result.MediumIssues)" -ForegroundColor Yellow
     Write-Host "    Low:            $($result.LowIssues)" -ForegroundColor Gray
+    Write-Host ""
+    
+    Write-Host "  Report saved to:" -ForegroundColor White
+    Write-Host "    $($result.ReportPath)" -ForegroundColor Cyan
     Write-Host ""
     
     # Exit code based on critical issues
@@ -205,13 +212,17 @@ try {
     }
 }
 catch {
-    Write-Host "`n╔══════════════════════════════════════════════════════════════════╗" -ForegroundColor Red
-    Write-Host "║                    EXECUTION FAILED                              ║" -ForegroundColor Red
-    Write-Host "╚══════════════════════════════════════════════════════════════════╝`n" -ForegroundColor Red
+    Write-Host ""
+    Write-Host "================================================================" -ForegroundColor Red
+    Write-Host "                    EXECUTION FAILED                            " -ForegroundColor Red
+    Write-Host "================================================================" -ForegroundColor Red
+    Write-Host ""
     
     Write-Host "  Error: $($_.Exception.Message)" -ForegroundColor Red
-    Write-Host "`n  Stack Trace:" -ForegroundColor Gray
+    Write-Host ""
+    Write-Host "  Stack Trace:" -ForegroundColor Gray
     Write-Host "  $($_.ScriptStackTrace)" -ForegroundColor DarkGray
+    Write-Host ""
     
     exit 99
 }

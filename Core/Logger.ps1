@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Centralized logging system for AD Health Check
 
@@ -455,14 +455,5 @@ function Close-Logger {
 # EXPORT MODULE MEMBERS
 # =============================================================================
 
-Export-ModuleMember -Function @(
-    'Initialize-Logger',
-    'Write-Log',
-    'Get-LogConfiguration',
-    'Set-LogLevel',
-    'Write-LogVerbose',
-    'Write-LogInfo',
-    'Write-LogWarning',
-    'Write-LogError',
-    'Close-Logger'
-)
+
+

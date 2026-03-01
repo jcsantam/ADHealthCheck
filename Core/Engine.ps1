@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Main orchestration engine for AD Health Check
 
@@ -544,6 +544,6 @@ function Export-HtmlReport {
 # EXPORT MODULE MEMBERS
 # =============================================================================
 
-Export-ModuleMember -Function @(
-    'Invoke-HealthCheckEngine'
-)
+
+
+
