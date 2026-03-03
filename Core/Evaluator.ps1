@@ -1,672 +1,638 @@
-﻿<#
+<#
 .SYNOPSIS
-    Rule-based result evaluation engine
+    AD Health Check - Evaluator Module
 
 .DESCRIPTION
-    Evaluates check execution results against defined rules to determine:
-    - Pass/Warning/Fail status
-    - Issue severity
-    - Affected objects
-    - Recommendations
-    
-    Rules are defined in JSON and evaluated dynamically, avoiding
-    hardcoded logic for each check.
+    Evaluates check execution results against JSON rule conditions.
+    Uses a DSL condition parser that supports collection queries, math expressions,
+    threshold references, and all comparison operators.
 
 .NOTES
-    Author: AD Health Check Team
-    Version: 1.0
-    Supports complex rule expressions
+    Version: 1.1.0-beta1
+    Compatibility: PowerShell 5.1+
+
+    Beta 1.1 Changes:
+        - Removed double ConvertFrom-Json (EvaluationRules already PSCustomObject)
+        - Fixed Get-AffectedObject null safety for collection results
+        - Added property alias mapping: normalizes check output property names
+          to the canonical names used in JSON rule conditions
+        - Improved DSL parser: handles Count(Collection) syntax
+        - Added debug tracing for condition evaluation failures
 #>
 
-# Import logger if available
-if (Test-Path "$PSScriptRoot\Logger.ps1") {
-    . "$PSScriptRoot\Logger.ps1"
+# =============================================================================
+# PROPERTY ALIAS MAP
+# Normalizes property names from check script output to the names used
+# in Definitions JSON condition expressions.
+# Format: 'ActualPropertyName' = 'CanonicalConditionName'
+# =============================================================================
+
+$script:PropertyAliasMap = @{
+    # Replication
+    'ReplicationStatus'    = 'Status'
+    'PartnerStatus'        = 'Status'
+    'ConsecutiveFailures'  = 'FailureCount'
+    'LastError'            = 'ErrorCode'
+    'QueuedObjects'        = 'QueueLength'
+
+    # DC Health - Services (DC-001)
+    'ServiceState'         = 'ServiceStatus'
+    'State'                = 'ServiceStatus'
+    'Status'               = 'ServiceStatus'   # Catch-all for service objects
+
+    # DC Health - Disk (DC-002)
+    'FreeSpacePercent'     = 'FreeSpacePct'
+    'FreeMB'               = 'FreeSpaceMB'
+    'FreeGB'               = 'FreeSpaceGB'
+    'PercentFree'          = 'FreeSpacePct'
+
+    # DC Health - Reachability (DC-003)
+    'IsReachable'          = 'Reachable'
+    'PingSuccess'          = 'Reachable'
+
+    # DNS
+    'ZoneStatus'           = 'Status'
+    'RecordExists'         = 'Exists'
+    'SRVExists'            = 'Exists'
+
+    # Time
+    'TimeDifferenceSec'    = 'OffsetSeconds'
+    'TimeDifferenceMs'     = 'OffsetMilliseconds'
+    'NTPSource'            = 'TimeSource'
+    'NtpServer'            = 'TimeSource'
+
+    # Security - Privileged Accounts (SEC-002)
+    'AdminSDHolderMissing' = 'MissingAdminSDHolder'
+    'ProtectedUsers'       = 'InProtectedUsersGroup'
 }
 
 # =============================================================================
-# FUNCTION: Invoke-ResultEvaluation
-# Purpose: Evaluate check results against defined rules
+# MAIN EVALUATION FUNCTION
 # =============================================================================
+
 function Invoke-ResultEvaluation {
-    <#
-    .SYNOPSIS
-        Evaluates check results against evaluation rules
-    
-    .PARAMETER CheckResults
-        Array of check execution results from Executor
-    
-    .PARAMETER CheckDefinitions
-        Array of check definitions with evaluation rules
-    
-    .PARAMETER Thresholds
-        Threshold configuration object
-    
-    .EXAMPLE
-        $evaluated = Invoke-ResultEvaluation -CheckResults $results -CheckDefinitions $checks -Thresholds $thresholds
-    
-    .OUTPUTS
-        Array of evaluated results with Pass/Warning/Fail status and issues
-    #>
-    
     [CmdletBinding()]
     param(
         [Parameter(Mandatory = $true)]
-        [array]$CheckResults,
-        
-        [Parameter(Mandatory = $true)]
-        [array]$CheckDefinitions,
-        
-        [Parameter(Mandatory = $true)]
-        [PSCustomObject]$Thresholds
+        [AllowNull()]
+        $ExecutionResults
     )
-    
-    Write-LogInfo "Starting result evaluation" -Category "Evaluator"
-    Write-LogInfo "  Results to evaluate: $($CheckResults.Count)" -Category "Evaluator"
-    
-    $evaluatedResults = @()
-    
-    foreach ($result in $CheckResults) {
-        Write-LogVerbose "Evaluating result for check: $($result.CheckId)" -Category "Evaluator"
-        
-        # Find corresponding check definition
-        $checkDef = $CheckDefinitions | Where-Object { $_.CheckId -eq $result.CheckId } | Select-Object -First 1
-        
-        if (-not $checkDef) {
-            Write-LogWarning "No check definition found for CheckId: $($result.CheckId)" -Category "Evaluator"
-            continue
+
+    $safeResults = @($ExecutionResults)
+    $evaluated   = @()
+
+    foreach ($result in $safeResults) {
+        try {
+            $evalResult = Invoke-SingleEvaluation -Result $result
+            $evaluated += $evalResult
         }
-        
-        # Create evaluated result object
-        $evaluatedResult = [PSCustomObject]@{
-            CheckId = $result.CheckId
-            CheckName = $checkDef.CheckName
-            CategoryId = $checkDef.CategoryId
-            Severity = $checkDef.Severity
-            StartTime = $result.StartTime
-            EndTime = $result.EndTime
-            DurationMs = $result.DurationMs
-            ExecutionStatus = $result.Status  # Completed/Error
-            EvaluationStatus = 'Unknown'      # Pass/Warning/Fail
-            RawOutput = $result.RawOutput
-            ProcessedOutput = $null
-            Issues = @()
-            IssueCount = 0
-            ErrorMessage = $result.ErrorMessage
-        }
-        
-        # If execution failed, mark as failed evaluation
-        if ($result.Status -eq 'Error') {
-            $evaluatedResult.EvaluationStatus = 'Fail'
-            $evaluatedResult.Issues = @(
-                [PSCustomObject]@{
-                    IssueId = [guid]::NewGuid().ToString()
-                    Severity = $checkDef.Severity
-                    Title = "Check Execution Failed"
-                    Description = "The check script failed to execute: $($result.ErrorMessage)"
-                    AffectedObject = "N/A"
-                    Evidence = @{ ErrorMessage = $result.ErrorMessage }
-                    Recommendation = "Review check script and execution logs"
-                }
-            )
-            $evaluatedResult.IssueCount = 1
-        }
-        else {
-            # Evaluate based on rules
-            try {
-                $evaluation = Invoke-RuleEvaluation `
-                    -CheckDefinition $checkDef `
-                    -RawOutput $result.RawOutput `
-                    -Thresholds $Thresholds
-                
-                $evaluatedResult.EvaluationStatus = $evaluation.Status
-                $evaluatedResult.ProcessedOutput = $evaluation.ProcessedOutput
-                $evaluatedResult.Issues = $evaluation.Issues
-                $evaluatedResult.IssueCount = $evaluation.Issues.Count
-                
-                Write-LogVerbose "  Status: $($evaluation.Status), Issues: $($evaluation.Issues.Count)" -Category "Evaluator"
-            }
-            catch {
-                Write-LogError "Failed to evaluate check $($result.CheckId): $($_.Exception.Message)" -Category "Evaluator"
-                $evaluatedResult.EvaluationStatus = 'Fail'
-                $evaluatedResult.ErrorMessage = "Evaluation failed: $($_.Exception.Message)"
+        catch {
+            Write-Warning "[Evaluator] Failed to evaluate $($result.CheckId): $($_.Exception.Message)"
+            Write-Log -Level Warning -Message "Evaluation failed for $($result.CheckId): $($_.Exception.Message)"
+
+            # Return safe default on evaluation error
+            $evaluated += [PSCustomObject]@{
+                CheckId          = $result.CheckId
+                CheckName        = $result.CheckName
+                Category         = $result.Category
+                EvaluationStatus = 'Warning'
+                Severity         = 'medium'
+                Message          = "Evaluation error: $($_.Exception.Message)"
+                AffectedObjects  = @()
+                RawResult        = $result
             }
         }
-        
-        $evaluatedResults += $evaluatedResult
     }
-    
-    # Summary statistics
-    $passCount = @($evaluatedResults | Where-Object { $_.EvaluationStatus -eq 'Pass' }).Count
-    $warnCount = @($evaluatedResults | Where-Object { $_.EvaluationStatus -eq 'Warning' }).Count
-    $failCount = @($evaluatedResults | Where-Object { $_.EvaluationStatus -eq 'Fail' }).Count
-    $totalIssues = ($evaluatedResults | Measure-Object -Property IssueCount -Sum).Sum
-    
-    Write-LogInfo "Result evaluation completed" -Category "Evaluator"
-    Write-LogInfo "  Pass: $passCount" -Category "Evaluator"
-    Write-LogInfo "  Warning: $warnCount" -Category "Evaluator"
-    Write-LogInfo "  Fail: $failCount" -Category "Evaluator"
-    Write-LogInfo "  Total issues detected: $totalIssues" -Category "Evaluator"
-    
-    return $evaluatedResults
+
+    $passCount = @($evaluated | Where-Object { $_.EvaluationStatus -eq 'Pass'    }).Count
+    $warnCount = @($evaluated | Where-Object { $_.EvaluationStatus -eq 'Warning' }).Count
+    $failCount = @($evaluated | Where-Object { $_.EvaluationStatus -eq 'Fail'    }).Count
+
+    Write-Log -Level Information -Message "Evaluation complete: Pass=$passCount Warning=$warnCount Fail=$failCount"
+
+    return $evaluated
 }
 
 # =============================================================================
-# FUNCTION: Invoke-RuleEvaluation
-# Purpose: Evaluate rules for a specific check
+# SINGLE CHECK EVALUATION
 # =============================================================================
-function Invoke-RuleEvaluation {
-    <#
-    .SYNOPSIS
-        Evaluates rules for a specific check result
-    #>
-    
-    param(
-        [Parameter(Mandatory = $true)]
-        $CheckDefinition,
-        
-        [Parameter(Mandatory = $true)]
-        $RawOutput,
-        
-        [Parameter(Mandatory = $true)]
-        $Thresholds
-    )
-    
-    # Parse evaluation rules from check definition
-    $evaluationRules = $null
-    if ($CheckDefinition.EvaluationRules) {
-        $evaluationRules = $CheckDefinition.EvaluationRules
+
+function Invoke-SingleEvaluation {
+    param($Result)
+
+    $checkDef = $Result.CheckDefinition
+    $rawData  = $Result.RawOutput
+
+    # No definition - pass through
+    if ($null -eq $checkDef) {
+        return New-EvalResult -Result $Result -Status 'Pass' -Message 'No definition - assumed healthy'
     }
-    
-    # Default evaluation result
-    $result = [PSCustomObject]@{
-        Status = 'Pass'
-        ProcessedOutput = $RawOutput
-        Issues = @()
+
+    # Execution error - mark as warning
+    if ($Result.Status -eq 'Error') {
+        return New-EvalResult -Result $Result -Status 'Warning' `
+            -Message "Check execution failed: $($Result.ErrorMessage)" `
+            -Severity 'medium'
     }
-    
-    # If no rules defined, use default pass/fail logic
-    if (-not $evaluationRules) {
-        return Invoke-DefaultEvaluation -RawOutput $RawOutput -CheckDefinition $CheckDefinition
+
+    # Null output - mark as warning
+    if ($null -eq $rawData) {
+        return New-EvalResult -Result $Result -Status 'Warning' `
+            -Message 'Check returned null output' `
+            -Severity 'low'
     }
-    
-    # Evaluate each rule
-    foreach ($rule in $evaluationRules.Rules) {
+
+    # No evaluation rules defined - use IsHealthy flag if available
+    $evalRules = $checkDef.EvaluationRules
+    if ($null -eq $evalRules -or @($evalRules).Count -eq 0) {
+        if ($null -ne $rawData.IsHealthy) {
+            $status = if ($rawData.IsHealthy) { 'Pass' } else { 'Fail' }
+            return New-EvalResult -Result $Result -Status $status `
+                -Message $rawData.Message `
+                -Severity $checkDef.Severity
+        }
+        return New-EvalResult -Result $Result -Status 'Pass' -Message 'No rules defined'
+    }
+
+    # -----------------------------------------------------------------------
+    # EVALUATE RULES
+    # EvaluationRules is already PSCustomObject from definition loader.
+    # DO NOT call ConvertFrom-Json again (Beta 1.0 bug - double parse).
+    # -----------------------------------------------------------------------
+
+    $triggeredRules = @()
+    $affectedObjects = @()
+
+    foreach ($rule in @($evalRules)) {
         try {
-            $ruleMatched = Test-RuleCondition -Condition $rule.Condition -Data $RawOutput -Thresholds $Thresholds
-            
-            if ($ruleMatched) {
-                # Update status (highest severity wins)
-                if ($rule.Status -eq 'Fail' -or $result.Status -eq 'Pass') {
-                    $result.Status = $rule.Status
-                }
-                
-                # Create issue if this is warning or fail
-                if ($rule.Status -in @('Warning', 'Fail')) {
-                    $issue = [PSCustomObject]@{
-                        IssueId = [guid]::NewGuid().ToString()
-                        Severity = Get-SeverityFromStatus -Status $rule.Status -DefaultSeverity $CheckDefinition.Severity
-                        Title = $rule.Title
-                        Description = $rule.Description
-                        AffectedObject = Get-AffectedObject -Data $RawOutput -Rule $rule
-                        Evidence = $RawOutput
-                        Recommendation = $CheckDefinition.RemediationSteps
-                    }
-                    
-                    $result.Issues += $issue
-                }
+            $conditionMet = Test-RuleCondition -Data $rawData -Condition $rule.Condition -CheckDef $checkDef
+
+            if ($conditionMet) {
+                $triggeredRules  += $rule
+                $affectedObjects += @(Get-AffectedObjects -Data $rawData -Rule $rule)
             }
         }
         catch {
-            Write-LogWarning "Failed to evaluate rule for $($CheckDefinition.CheckId): $($_.Exception.Message)" -Category "Evaluator"
+            Write-Log -Level Verbose -Message "Condition eval error for $($Result.CheckId) '$($rule.Condition)': $($_.Exception.Message)"
         }
     }
-    
-    return $result
+
+    if ($triggeredRules.Count -eq 0) {
+        return New-EvalResult -Result $Result -Status 'Pass' -Message 'All conditions within normal parameters'
+    }
+
+    # Use highest severity from triggered rules
+    $worstRule = Get-HighestSeverityRule -Rules $triggeredRules -DefaultSeverity $checkDef.Severity
+    $status    = if ($worstRule.Status) { $worstRule.Status } else { 'Fail' }
+
+    return New-EvalResult -Result $Result `
+        -Status          $status `
+        -Message         $worstRule.Message `
+        -Severity        $worstRule.Severity `
+        -AffectedObjects $affectedObjects
 }
 
 # =============================================================================
-# FUNCTION: Invoke-DefaultEvaluation
-# Purpose: Default evaluation logic when no rules are defined
+# DSL CONDITION PARSER
+# Supports: Any(Prop op val), All(Prop op val), None(Prop op val),
+#           Count op val, Prop op val, math expressions, threshold refs
 # =============================================================================
-function Invoke-DefaultEvaluation {
-    <#
-    .SYNOPSIS
-        Performs default evaluation when no specific rules are defined
-    #>
-    
-    param(
-        [Parameter(Mandatory = $true)]
-        $RawOutput,
-        
-        [Parameter(Mandatory = $true)]
-        $CheckDefinition
-    )
-    
-    $result = [PSCustomObject]@{
-        Status = 'Pass'
-        ProcessedOutput = $RawOutput
-        Issues = @()
-    }
-    
-    # Simple default logic: if output is a collection, check if any items indicate failure
-    if ($RawOutput -is [System.Collections.IEnumerable] -and $RawOutput -isnot [string]) {
-        $failedItems = @($RawOutput | Where-Object { 
-            $_.Status -eq 'Failed' -or 
-            $_.Status -eq 'Error' -or 
-            $_.IsHealthy -eq $false -or
-            $_.HasIssue -eq $true
-        })
-        
-        if ($failedItems.Count -gt 0) {
-            $result.Status = 'Fail'
-            
-            foreach ($item in $failedItems) {
-                $issue = [PSCustomObject]@{
-                    IssueId = [guid]::NewGuid().ToString()
-                    Severity = $CheckDefinition.Severity
-                    Title = "$($CheckDefinition.CheckName) Failed"
-                    Description = "Item failed validation"
-                    AffectedObject = if ($item.Name) { $item.Name } elseif ($item.ComputerName) { $item.ComputerName } else { "Unknown" }
-                    Evidence = $item
-                    Recommendation = $CheckDefinition.RemediationSteps
-                }
-                
-                $result.Issues += $issue
-            }
-        }
-    }
-    # If output has a "Status" property
-    elseif ($RawOutput.Status) {
-        if ($RawOutput.Status -in @('Failed', 'Error', 'Critical')) {
-            $result.Status = 'Fail'
-            
-            $issue = [PSCustomObject]@{
-                IssueId = [guid]::NewGuid().ToString()
-                Severity = $CheckDefinition.Severity
-                Title = "$($CheckDefinition.CheckName) Failed"
-                Description = if ($RawOutput.Message) { $RawOutput.Message } else { "Check returned failure status" }
-                AffectedObject = if ($RawOutput.AffectedObject) { $RawOutput.AffectedObject } else { "N/A" }
-                Evidence = $RawOutput
-                Recommendation = $CheckDefinition.RemediationSteps
-            }
-            
-            $result.Issues += $issue
-        }
-        elseif ($RawOutput.Status -eq 'Warning') {
-            $result.Status = 'Warning'
-        }
-    }
-    
-    return $result
-}
 
-# =============================================================================
-# FUNCTION: Test-RuleCondition
-# Purpose: Test if a rule condition is met
-# =============================================================================
 function Test-RuleCondition {
-    <#
-    .SYNOPSIS
-        Tests if a rule condition evaluates to true
-    .DESCRIPTION
-        Proper condition parser supporting:
-        - Any(Property == 'value')
-        - Any(Property > number)
-        - Property == value
-        - Property != value
-        - Property > number
-        - Property < number
-        - Property >= number
-        - Property <= number
-        - true/false/null literals
-        - Threshold references (CriticalThreshold, WarningThreshold)
-    #>
-    
     param(
-        [Parameter(Mandatory = $true)]
-        [string]$Condition,
-        
-        [Parameter(Mandatory = $true)]
         $Data,
-        
-        [Parameter(Mandatory = $false)]
-        $Thresholds
+        [string]$Condition,
+        $CheckDef
     )
-    
-    try {
-        $condition = $Condition.Trim()
-        
-        # =====================================================================
-        # Handle Any() - collection pattern
-        # Any(Property operator value)
-        # =====================================================================
-        if ($condition -match '^Any\((.+)\)$') {
-            $innerCondition = $matches[1].Trim()
-            
-            # Ensure Data is a collection
-            $collection = @($Data)
-            if ($collection.Count -eq 0) { return $false }
-            
-            foreach ($item in $collection) {
-                if (Test-SingleCondition -Condition $innerCondition -Item $item -Thresholds $Thresholds) {
-                    return $true
-                }
+
+    if ([string]::IsNullOrWhiteSpace($Condition)) { return $false }
+
+    $c = $Condition.Trim()
+
+    # -----------------------------------------------------------------------
+    # ANY(Property op Value) - true if ANY item in collection matches
+    # -----------------------------------------------------------------------
+    if ($c -match '^Any\((.+)\)$') {
+        $innerCondition = $matches[1].Trim()
+        $dataArray = Get-DataAsArray -Data $Data
+
+        foreach ($item in $dataArray) {
+            $normalizedItem = Add-PropertyAliases -Object $item
+            if (Test-SimpleCondition -Object $normalizedItem -Condition $innerCondition -CheckDef $CheckDef) {
+                return $true
             }
-            return $false
         }
-        
-        # =====================================================================
-        # Handle All() - all items must match
-        # =====================================================================
-        if ($condition -match '^All\((.+)\)$') {
-            $innerCondition = $matches[1].Trim()
-            $collection = @($Data)
-            if ($collection.Count -eq 0) { return $false }
-            
-            foreach ($item in $collection) {
-                if (-not (Test-SingleCondition -Condition $innerCondition -Item $item -Thresholds $Thresholds)) {
-                    return $false
-                }
-            }
-            return $true
-        }
-        
-        # =====================================================================
-        # Handle None() - no items match
-        # =====================================================================
-        if ($condition -match '^None\((.+)\)$') {
-            $innerCondition = $matches[1].Trim()
-            $collection = @($Data)
-            
-            foreach ($item in $collection) {
-                if (Test-SingleCondition -Condition $innerCondition -Item $item -Thresholds $Thresholds) {
-                    return $false
-                }
-            }
-            return $true
-        }
-        
-        # =====================================================================
-        # Handle Count() comparisons
-        # Count > 0, Count == 0, etc.
-        # =====================================================================
-        if ($condition -match '^Count\s*(==|!=|>|<|>=|<=)\s*(.+)$') {
-            $operator = $matches[1]
-            $compareValue = Resolve-ConditionValue -Value $matches[2].Trim() -Item $null -Thresholds $Thresholds
-            $count = @($Data).Count
-            return (Compare-Values -Left $count -Operator $operator -Right $compareValue)
-        }
-        
-        # =====================================================================
-        # Handle direct property conditions on single object or collection
-        # =====================================================================
-        # Try as single object first
-        $dataItem = $Data
-        if ($Data -is [System.Collections.IEnumerable] -and $Data -isnot [string]) {
-            $dataItem = @($Data) | Select-Object -First 1
-        }
-        
-        return (Test-SingleCondition -Condition $condition -Item $dataItem -Thresholds $Thresholds)
-    }
-    catch {
-        Write-LogVerbose "Failed to evaluate condition: $Condition - $($_.Exception.Message)" -Category "Evaluator"
         return $false
     }
-}
 
-# =============================================================================
-# FUNCTION: Test-SingleCondition
-# Purpose: Evaluate a simple condition against a single data item
-# =============================================================================
-function Test-SingleCondition {
-    param(
-        [string]$Condition,
-        $Item,
-        $Thresholds
-    )
-    
-    $condition = $Condition.Trim()
-    
-    # Pattern: Property operator Value
-    # Supports: == != > < >= <=
-    if ($condition -match '^(.+?)\s*(==|!=|>=|<=|>|<)\s*(.+)$') {
-        $propName  = $matches[1].Trim()
-        $operator  = $matches[2].Trim()
-        $rawRight  = $matches[3].Trim()
-        
-        # Resolve left side (property value)
-        $leftValue = Resolve-PropertyValue -PropertyName $propName -Item $Item -Thresholds $Thresholds
-        
-        # Resolve right side (literal, threshold, or null)
-        $rightValue = Resolve-ConditionValue -Value $rawRight -Item $Item -Thresholds $Thresholds
-        
-        return (Compare-Values -Left $leftValue -Operator $operator -Right $rightValue)
-    }
-    
-    # Boolean shorthand: just a property name = check if truthy
-    if ($condition -match '^(\w+)$') {
-        $val = Resolve-PropertyValue -PropertyName $condition -Item $Item -Thresholds $Thresholds
-        return [bool]$val
-    }
-    
-    return $false
-}
+    # -----------------------------------------------------------------------
+    # ALL(Property op Value) - true if ALL items match
+    # -----------------------------------------------------------------------
+    if ($c -match '^All\((.+)\)$') {
+        $innerCondition = $matches[1].Trim()
+        $dataArray = Get-DataAsArray -Data $Data
 
-# =============================================================================
-# FUNCTION: Resolve-PropertyValue
-# Purpose: Get property value from data item or thresholds
-# =============================================================================
-function Resolve-PropertyValue {
-    param(
-        [string]$PropertyName,
-        $Item,
-        $Thresholds
-    )
-    
-    # Check thresholds first
-    $thresholdValue = Resolve-ConditionValue -Value $PropertyName -Item $Item -Thresholds $Thresholds -ThresholdOnly
-    if ($null -ne $thresholdValue) { return $thresholdValue }
-    
-    # Check item properties
-    if ($null -ne $Item) {
-        try {
-            $propValue = $Item.$PropertyName
-            if ($null -ne $propValue) { return $propValue }
-        }
-        catch { }
-        
-        # Try PSObject.Properties for safety
-        if ($Item.PSObject.Properties[$PropertyName]) {
-            return $Item.PSObject.Properties[$PropertyName].Value
-        }
-    }
-    
-    return $null
-}
+        if ($dataArray.Count -eq 0) { return $false }
 
-# =============================================================================
-# FUNCTION: Resolve-ConditionValue
-# Purpose: Resolve a value string to actual typed value
-# =============================================================================
-function Resolve-ConditionValue {
-    param(
-        [string]$Value,
-        $Item,
-        $Thresholds,
-        [switch]$ThresholdOnly
-    )
-    
-    $v = $Value.Trim()
-    
-    # Threshold references
-    if ($v -eq 'CriticalThreshold' -and $Thresholds) {
-        $t = $Thresholds.backup.backupAgeCriticalDays
-        if ($null -ne $t) { return $t }
-        return 30
-    }
-    if ($v -eq 'WarningThreshold' -and $Thresholds) {
-        $t = $Thresholds.backup.backupAgeWarningDays
-        if ($null -ne $t) { return $t }
-        return 14
-    }
-    
-    if ($ThresholdOnly) { return $null }
-    
-    # null literal
-    if ($v -eq 'null') { return $null }
-    
-    # Boolean literals
-    if ($v -eq 'true')  { return $true }
-    if ($v -eq 'false') { return $false }
-    
-    # Quoted string: 'value' or "value"
-    if ($v -match "^'(.+)'$" -or $v -match '^"(.+)"$') {
-        return $matches[1]
-    }
-    
-    # Numeric
-    $num = $null
-    if ([double]::TryParse($v, [ref]$num)) { return $num }
-    
-    # Math expression like (DatabaseSizeGB * 1.25)
-    if ($v -match '^\((.+)\)$') {
-        $inner = $matches[1]
-        if ($inner -match '^(.+?)\s*\*\s*(.+)$') {
-            $left  = Resolve-ConditionValue -Value $matches[1].Trim() -Item $Item -Thresholds $Thresholds
-            $right = Resolve-ConditionValue -Value $matches[2].Trim() -Item $Item -Thresholds $Thresholds
-            if ($null -ne $left -and $null -ne $right) {
-                return ([double]$left * [double]$right)
+        foreach ($item in $dataArray) {
+            $normalizedItem = Add-PropertyAliases -Object $item
+            if (-not (Test-SimpleCondition -Object $normalizedItem -Condition $innerCondition -CheckDef $CheckDef)) {
+                return $false
             }
         }
+        return $true
     }
-    
-    # Property reference — look up on item
-    if ($null -ne $Item -and $v -match '^\w+$') {
-        try {
-            $pval = $Item.$v
-            if ($null -ne $pval) { return $pval }
+
+    # -----------------------------------------------------------------------
+    # NONE(Property op Value) - true if NO items match
+    # -----------------------------------------------------------------------
+    if ($c -match '^None\((.+)\)$') {
+        $innerCondition = $matches[1].Trim()
+        $dataArray = Get-DataAsArray -Data $Data
+
+        foreach ($item in $dataArray) {
+            $normalizedItem = Add-PropertyAliases -Object $item
+            if (Test-SimpleCondition -Object $normalizedItem -Condition $innerCondition -CheckDef $CheckDef) {
+                return $false  # Found one match => None condition fails
+            }
         }
-        catch { }
+        return $true
     }
-    
-    # Return as string fallback
+
+    # -----------------------------------------------------------------------
+    # COUNT op Value - compares count of items in collection
+    # -----------------------------------------------------------------------
+    if ($c -match '^Count\s*(==|!=|>|<|>=|<=)\s*(\d+)$') {
+        $op       = $matches[1]
+        $expected = [int]$matches[2]
+        $actual   = (Get-DataAsArray -Data $Data).Count
+        return Compare-Values -Left $actual -Operator $op -Right $expected
+    }
+
+    # -----------------------------------------------------------------------
+    # COUNT(Property) op Value - count items where property is not null/empty
+    # -----------------------------------------------------------------------
+    if ($c -match '^Count\((\w+)\)\s*(==|!=|>|<|>=|<=)\s*(\d+)$') {
+        $propName = $matches[1]
+        $op       = $matches[2]
+        $expected = [int]$matches[3]
+        $dataArray = Get-DataAsArray -Data $Data
+        $actual    = @($dataArray | Where-Object { $null -ne $_.$propName -and $_.$propName -ne '' }).Count
+        return Compare-Values -Left $actual -Operator $op -Right $expected
+    }
+
+    # -----------------------------------------------------------------------
+    # Direct property condition on root data object
+    # -----------------------------------------------------------------------
+    $normalizedData = Add-PropertyAliases -Object $Data
+    return Test-SimpleCondition -Object $normalizedData -Condition $c -CheckDef $CheckDef
+}
+
+# =============================================================================
+# SIMPLE CONDITION: "Property op Value"
+# =============================================================================
+
+function Test-SimpleCondition {
+    param(
+        $Object,
+        [string]$Condition,
+        $CheckDef
+    )
+
+    # Match: PropertyName operator value
+    # Operators: ==, !=, >=, <=, >, <
+    # Values: quoted strings, numbers, true, false, null
+    if ($Condition -notmatch '^(\w+)\s*(==|!=|>=|<=|>|<)\s*(.+)$') {
+        Write-Log -Level Verbose -Message "Unrecognized condition syntax: '$Condition'"
+        return $false
+    }
+
+    $propName  = $matches[1].Trim()
+    $operator  = $matches[2].Trim()
+    $rawValue  = $matches[3].Trim()
+
+    # Resolve right-hand side value
+    $rhsValue = Resolve-ConditionValue -RawValue $rawValue -CheckDef $CheckDef
+
+    # Resolve left-hand side from object
+    $lhsValue = Get-PropertyValue -Object $Object -PropertyName $propName
+
+    return Compare-Values -Left $lhsValue -Operator $operator -Right $rhsValue
+}
+
+# =============================================================================
+# VALUE RESOLVER: handles literals, threshold references, math
+# =============================================================================
+
+function Resolve-ConditionValue {
+    param(
+        [string]$RawValue,
+        $CheckDef
+    )
+
+    $v = $RawValue.Trim()
+
+    # Quoted string: 'Stopped', "Failed"
+    if ($v -match "^'(.*)' $") { return $matches[1] }
+    if ($v -match '^"(.*)"$') { return $matches[1] }
+
+    # Boolean literals
+    if ($v -eq 'true')  { return $true  }
+    if ($v -eq 'false') { return $false }
+
+    # Null literal
+    if ($v -eq 'null')  { return $null  }
+
+    # Threshold references from CheckDefinition
+    if ($v -eq 'CriticalThreshold' -and $null -ne $CheckDef) {
+        $t = $CheckDef.CriticalThreshold
+        if ($null -ne $t) { return $t }
+    }
+    if ($v -eq 'WarningThreshold' -and $null -ne $CheckDef) {
+        $t = $CheckDef.WarningThreshold
+        if ($null -ne $t) { return $t }
+    }
+
+    # Numeric (int or float)
+    $numVal = 0.0
+    if ([double]::TryParse($v, [ref]$numVal)) { return $numVal }
+
+    # Fall back: return as string
     return $v
 }
 
 # =============================================================================
-# FUNCTION: Compare-Values
-# Purpose: Compare two values with an operator
+# PROPERTY RESOLVER: gets value from object, with alias fallback
 # =============================================================================
-function Compare-Values {
-    param(
-        $Left,
-        [string]$Operator,
-        $Right
-    )
-    
-    # Handle null comparisons
-    if ($Operator -eq '==' -and $null -eq $Right) { return ($null -eq $Left) }
-    if ($Operator -eq '!=' -and $null -eq $Right) { return ($null -ne $Left) }
-    if ($null -eq $Left) { return $false }
-    
-    # Try numeric comparison
-    $leftNum  = $null
-    $rightNum = $null
-    $isNumeric = ([double]::TryParse([string]$Left,  [ref]$leftNum) -and
-                  [double]::TryParse([string]$Right, [ref]$rightNum))
-    
-    switch ($Operator) {
-        '==' {
-            if ($isNumeric) { return ($leftNum -eq $rightNum) }
-            # Boolean comparison
-            if ($Right -is [bool] -or $Left -is [bool]) {
-                return ([bool]$Left -eq [bool]$Right)
-            }
-            return ([string]$Left -eq [string]$Right)
-        }
-        '!=' {
-            if ($isNumeric) { return ($leftNum -ne $rightNum) }
-            if ($Right -is [bool] -or $Left -is [bool]) {
-                return ([bool]$Left -ne [bool]$Right)
-            }
-            return ([string]$Left -ne [string]$Right)
-        }
-        '>'  { if ($isNumeric) { return ($leftNum -gt $rightNum) }; return $false }
-        '<'  { if ($isNumeric) { return ($leftNum -lt $rightNum) }; return $false }
-        '>=' { if ($isNumeric) { return ($leftNum -ge $rightNum) }; return $false }
-        '<=' { if ($isNumeric) { return ($leftNum -le $rightNum) }; return $false }
+
+function Get-PropertyValue {
+    param($Object, [string]$PropertyName)
+
+    if ($null -eq $Object) { return $null }
+
+    # Try direct property access
+    try {
+        $val = $Object.$PropertyName
+        if ($null -ne $val) { return $val }
     }
-    
+    catch { }
+
+    # Try via PSObject.Properties (handles dynamic properties)
+    try {
+        $prop = $Object.PSObject.Properties[$PropertyName]
+        if ($null -ne $prop) { return $prop.Value }
+    }
+    catch { }
+
+    return $null
+}
+
+# =============================================================================
+# COMPARISON ENGINE
+# =============================================================================
+
+function Compare-Values {
+    param($Left, [string]$Operator, $Right)
+
+    # Null handling
+    if ($null -eq $Left -and $null -eq $Right) {
+        return ($Operator -eq '==' -or $Operator -eq '>=')
+    }
+    if ($null -eq $Left)  {
+        if ($Operator -eq '==')  { return $false }
+        if ($Operator -eq '!=')  { return $true  }
+        return $false
+    }
+    if ($null -eq $Right) {
+        if ($Operator -eq '!=')  { return $true  }
+        return $false
+    }
+
+    # Boolean comparison
+    if ($Left -is [bool] -or $Right -is [bool]) {
+        $lb = [bool]$Left
+        $rb = [bool]$Right
+        switch ($Operator) {
+            '==' { return $lb -eq $rb }
+            '!=' { return $lb -ne $rb }
+        }
+        return $false
+    }
+
+    # String comparison (case-insensitive)
+    if ($Left -is [string] -or $Right -is [string]) {
+        $ls = "$Left"
+        $rs = "$Right"
+        switch ($Operator) {
+            '==' { return $ls -ieq $rs }
+            '!=' { return $ls -ine $rs }
+            '>'  { return [string]::Compare($ls, $rs, $true) -gt 0 }
+            '<'  { return [string]::Compare($ls, $rs, $true) -lt 0 }
+        }
+        return $false
+    }
+
+    # Numeric comparison
+    try {
+        $ln = [double]$Left
+        $rn = [double]$Right
+        switch ($Operator) {
+            '==' { return $ln -eq $rn }
+            '!=' { return $ln -ne $rn }
+            '>'  { return $ln -gt $rn }
+            '<'  { return $ln -lt $rn }
+            '>=' { return $ln -ge $rn }
+            '<=' { return $ln -le $rn }
+        }
+    }
+    catch { }
+
     return $false
 }
 
 # =============================================================================
-# FUNCTION: Get-SeverityFromStatus
-# Purpose: Map evaluation status to severity level
+# PROPERTY ALIAS INJECTION
+# Adds canonical property names to objects so JSON conditions work
+# regardless of what the check script named its output properties
 # =============================================================================
-function Get-SeverityFromStatus {
-    param(
-        [string]$Status,
-        [string]$DefaultSeverity
-    )
-    
-    switch ($Status) {
-        'Fail'    { return 'Critical' }
-        'Warning' { return 'Medium' }
-        'Pass'    { return 'Low' }
-        default   { return $DefaultSeverity }
+
+function Add-PropertyAliases {
+    param($Object)
+
+    if ($null -eq $Object) { return $Object }
+
+    # Work on a copy to avoid mutating the original
+    $copy = $Object | Select-Object *
+
+    foreach ($alias in $script:PropertyAliasMap.Keys) {
+        $canonical = $script:PropertyAliasMap[$alias]
+
+        # If canonical property doesn't exist but alias does, add canonical
+        $existingCanonical = $null
+        try { $existingCanonical = $copy.$canonical } catch { }
+
+        if ($null -eq $existingCanonical) {
+            $existingAlias = $null
+            try { $existingAlias = $copy.$alias } catch { }
+
+            if ($null -ne $existingAlias) {
+                try {
+                    $copy | Add-Member -NotePropertyName $canonical -NotePropertyValue $existingAlias -Force -ErrorAction SilentlyContinue
+                }
+                catch { }
+            }
+        }
     }
+
+    return $copy
 }
 
 # =============================================================================
-# FUNCTION: Get-AffectedObject
-# Purpose: Extract affected object name from data
+# DATA NORMALIZATION: get data as array regardless of structure
 # =============================================================================
-function Get-AffectedObject {
-    param($Data, $Rule)
-    
-    $possibleProperties = @('Name', 'HostName', 'ComputerName', 'ServerName', 
-                            'DomainController', 'PDC', 'DC', 'Domain',
-                            'DN', 'DistinguishedName', 'SamAccountName')
-    
-    # If collection, check first item then return count summary
-    if ($Data -is [System.Collections.IEnumerable] -and $Data -isnot [string]) {
-        $collection = @($Data)
-        if ($collection.Count -eq 0) { return "N/A" }
-        
-        # Try to get name from first item
-        $firstItem = $collection[0]
-        foreach ($prop in $possibleProperties) {
+
+function Get-DataAsArray {
+    param($Data)
+
+    if ($null -eq $Data) { return @() }
+
+    # Already an array
+    if ($Data -is [System.Array]) { return @($Data) }
+
+    # PSCustomObject with collection properties - find most likely array property
+    if ($Data -is [System.Management.Automation.PSCustomObject]) {
+        # Check common collection property names
+        $collectionProps = @('Items', 'Results', 'DomainControllers', 'Services',
+                             'Partitions', 'Errors', 'Issues', 'Accounts',
+                             'Computers', 'Zones', 'Records', 'Forwarders', 'Partners')
+
+        foreach ($propName in $collectionProps) {
             try {
-                $val = $firstItem.$prop
-                if ($val) {
-                    if ($collection.Count -gt 1) {
-                        return "$val (+$($collection.Count - 1) more)"
-                    }
-                    return "$val"
+                $val = $Data.$propName
+                if ($null -ne $val -and $val -is [System.Array] -and $val.Count -gt 0) {
+                    return @($val)
                 }
             }
             catch { }
         }
-        
-        return "$($collection.Count) objects"
+
+        # Wrap single object as array
+        return @($Data)
     }
-    
-    # Single object
-    foreach ($prop in $possibleProperties) {
-        try {
-            $val = $Data.$prop
-            if ($val) { return "$val" }
-        }
-        catch { }
-    }
-    
-    return "N/A"
+
+    return @($Data)
 }
 
 # =============================================================================
-# EXPORT MODULE MEMBERS
+# AFFECTED OBJECTS EXTRACTOR
 # =============================================================================
 
+function Get-AffectedObjects {
+    param($Data, $Rule)
 
+    $affected = @()
 
+    try {
+        $dataArray = Get-DataAsArray -Data $Data
+        $limit = 10  # Don't return more than 10 affected objects
+
+        foreach ($item in $dataArray) {
+            if ($affected.Count -ge $limit) { break }
+
+            # Try common identifier properties
+            $identProps = @('Name', 'DCName', 'DomainController', 'ComputerName',
+                            'SamAccountName', 'DistinguishedName', 'ZoneName',
+                            'ServiceName', 'Drive', 'Partition')
+
+            foreach ($prop in $identProps) {
+                $val = $null
+                try { $val = $item.$prop } catch { }
+
+                if ($null -ne $val -and "$val" -ne '') {
+                    $affected += "$val"
+                    break
+                }
+            }
+        }
+    }
+    catch {
+        Write-Log -Level Verbose -Message "GetAffectedObjects error: $($_.Exception.Message)"
+    }
+
+    return $affected
+}
+
+# =============================================================================
+# SEVERITY RANKING
+# =============================================================================
+
+function Get-HighestSeverityRule {
+    param($Rules, $DefaultSeverity)
+
+    $severityRank = @{ critical=4; high=3; medium=2; low=1; informational=0 }
+
+    $best     = $null
+    $bestRank = -1
+
+    foreach ($rule in @($Rules)) {
+        $sev  = if ($null -ne $rule.Severity) { "$($rule.Severity)".ToLower() } else { $DefaultSeverity }
+        $rank = 0
+        if ($severityRank.ContainsKey($sev)) { $rank = $severityRank[$sev] }
+
+        if ($rank -gt $bestRank) {
+            $bestRank = $rank
+            $best     = $rule
+
+            # Ensure severity is set on the rule object for return
+            if ($null -eq $best.Severity) {
+                $best | Add-Member -NotePropertyName 'Severity' -NotePropertyValue $sev -Force -ErrorAction SilentlyContinue
+            }
+        }
+    }
+
+    if ($null -eq $best -and @($Rules).Count -gt 0) { $best = $Rules[0] }
+
+    return $best
+}
+
+# =============================================================================
+# RESULT BUILDER
+# =============================================================================
+
+function New-EvalResult {
+    param(
+        $Result,
+        [string]$Status,
+        [string]$Message     = '',
+        [string]$Severity    = 'low',
+        [array]$AffectedObjects = @()
+    )
+
+    $checkDef = $Result.CheckDefinition
+    $sev = $Severity
+    if ([string]::IsNullOrWhiteSpace($sev) -and $null -ne $checkDef) {
+        $sev = $checkDef.Severity
+    }
+    if ([string]::IsNullOrWhiteSpace($sev)) { $sev = 'low' }
+
+    $displayMsg = $Message
+    if ([string]::IsNullOrWhiteSpace($displayMsg) -and $null -ne $checkDef) {
+        if ($Status -eq 'Pass') {
+            $displayMsg = if ($checkDef.PassMessage) { $checkDef.PassMessage } else { 'Check passed' }
+        }
+        else {
+            $displayMsg = if ($checkDef.FailMessage) { $checkDef.FailMessage } else { 'Issue detected' }
+        }
+    }
+
+    return [PSCustomObject]@{
+        CheckId          = $Result.CheckId
+        CheckName        = $Result.CheckName
+        Category         = $Result.Category
+        EvaluationStatus = $Status
+        Severity         = $sev
+        Message          = $displayMsg
+        AffectedObjects  = $AffectedObjects
+        RawResult        = $Result
+    }
+}

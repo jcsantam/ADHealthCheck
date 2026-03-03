@@ -1,565 +1,417 @@
-﻿<#
+<#
 .SYNOPSIS
-    Main orchestration engine for AD Health Check
+    AD Health Check - Core Engine
 
 .DESCRIPTION
-    Coordinates the entire health check process:
-    1. Initialize system (logging, configuration, database)
-    2. Discover AD topology
-    3. Load check definitions
-    4. Execute checks in parallel
-    5. Evaluate results against rules
-    6. Calculate health scores
-    7. Save to database
-    8. Generate reports
-    
-    This is the "brain" that ties all other modules together.
+    Main orchestrator. Runs Discovery, Execution, Evaluation, Scoring, and Reporting.
 
 .NOTES
-    Author: AD Health Check Team
-    Version: 1.0
-    Main entry point for health check execution
+    Version: 1.1.0-beta1
+    Compatibility: PowerShell 5.1+
+
+    Beta 1.1 Changes:
+        - ConvertFrom-Json PSCustomObject-to-Hashtable conversion hardened
+        - ReportPath properly attached to result object via Add-Member
+        - Phase error messages improved with exact failure context
+        - Database warnings suppressed to Verbose level
 #>
 
 # =============================================================================
-# IMPORT ALL CORE MODULES
+# HELPER: Safe PSCustomObject -> Hashtable Conversion (PS 5.1 fix)
 # =============================================================================
 
-$moduleFiles = @(
-    'Logger.ps1',
-    'Compatibility.ps1',
-    'Discovery.ps1',
-    'Executor.ps1',
-    'Evaluator.ps1',
-    'Scorer.ps1',
-    'DatabaseOperations.ps1',
-    'HtmlReporter.ps1'
-)
-
-foreach ($moduleFile in $moduleFiles) {
-    $modulePath = Join-Path $PSScriptRoot $moduleFile
-    if (Test-Path $modulePath) {
-        . $modulePath
-    }
-    else {
-        Write-Error "Required module not found: $modulePath"
-        exit 1
-    }
-}
-
-# =============================================================================
-# FUNCTION: Invoke-HealthCheckEngine
-# Purpose: Main orchestration function - runs entire health check
-# =============================================================================
-function Invoke-HealthCheckEngine {
+function ConvertTo-HashtableDeep {
     <#
     .SYNOPSIS
-        Executes complete AD health check
-    
-    .PARAMETER OutputPath
-        Path where results and reports will be saved
-    
-    .PARAMETER ConfigPath
-        Path to settings.json configuration file
-    
-    .PARAMETER ThresholdsPath
-        Path to thresholds.json configuration file
-    
-    .PARAMETER Categories
-        Array of category IDs to run (empty = all categories)
-    
-    .PARAMETER MaxParallelJobs
-        Maximum parallel check executions (default: 10)
-    
-    .PARAMETER LogLevel
-        Logging level (Verbose, Information, Warning, Error)
-    
-    .EXAMPLE
-        Invoke-HealthCheckEngine -OutputPath "C:\Reports"
-    
-    .EXAMPLE
-        Invoke-HealthCheckEngine -Categories @('Replication', 'DCHealth') -LogLevel Verbose
-    
-    .OUTPUTS
-        PSCustomObject with run summary and scores
+        Recursively converts PSCustomObject (returned by ConvertFrom-Json in PS 5.1)
+        into a proper [hashtable]. Safe to call on already-hashtable objects.
     #>
-    
+    param(
+        [Parameter(Mandatory = $true)]
+        [AllowNull()]
+        [object]$InputObject
+    )
+
+    if ($null -eq $InputObject) { return @{} }
+
+    # Already a Hashtable - pass through
+    if ($InputObject -is [System.Collections.Hashtable]) {
+        return $InputObject
+    }
+
+    # PSCustomObject from ConvertFrom-Json - recurse into properties
+    if ($InputObject -is [System.Management.Automation.PSCustomObject]) {
+        $ht = @{}
+        foreach ($prop in $InputObject.PSObject.Properties) {
+            $val = $prop.Value
+            if ($null -ne $val -and (
+                $val -is [System.Management.Automation.PSCustomObject] -or
+                $val -is [System.Collections.Hashtable]
+            )) {
+                $ht[$prop.Name] = ConvertTo-HashtableDeep -InputObject $val
+            }
+            else {
+                $ht[$prop.Name] = $val
+            }
+        }
+        return $ht
+    }
+
+    # Array - recurse into each element
+    if ($InputObject -is [System.Array] -or $InputObject -is [System.Collections.ArrayList]) {
+        $arr = @()
+        foreach ($item in $InputObject) {
+            if ($null -ne $item -and (
+                $item -is [System.Management.Automation.PSCustomObject] -or
+                $item -is [System.Collections.Hashtable]
+            )) {
+                $arr += ConvertTo-HashtableDeep -InputObject $item
+            }
+            else {
+                $arr += $item
+            }
+        }
+        return $arr
+    }
+
+    # Primitive value
+    return $InputObject
+}
+
+# =============================================================================
+# HELPER: Load JSON config file safely, always returning a Hashtable
+# =============================================================================
+
+function Get-JsonConfig {
+    param(
+        [string]$Path,
+        [hashtable]$DefaultValue = @{}
+    )
+
+    if (-not (Test-Path $Path)) {
+        Write-Verbose "[Engine] Config not found: $Path - using defaults"
+        return $DefaultValue
+    }
+
+    try {
+        $raw    = Get-Content -Path $Path -Raw -Encoding UTF8
+        $parsed = $raw | ConvertFrom-Json
+        return ConvertTo-HashtableDeep -InputObject $parsed
+    }
+    catch {
+        Write-Warning "[Engine] Failed to parse config '$Path': $($_.Exception.Message)"
+        return $DefaultValue
+    }
+}
+
+# =============================================================================
+# MAIN ENGINE
+# =============================================================================
+
+function Invoke-HealthCheckEngine {
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory = $false)]
-        [string]$OutputPath = "$PSScriptRoot\..\Output",
-        
-        [Parameter(Mandatory = $false)]
-        [string]$ConfigPath = "$PSScriptRoot\..\Config\settings.json",
-        
-        [Parameter(Mandatory = $false)]
-        [string]$ThresholdsPath = "$PSScriptRoot\..\Config\thresholds.json",
-        
-        [Parameter(Mandatory = $false)]
-        [array]$Categories = @(),
-        
-        [Parameter(Mandatory = $false)]
-        [int]$MaxParallelJobs = 10,
-        
-        [Parameter(Mandatory = $false)]
-        [ValidateSet('Verbose', 'Information', 'Warning', 'Error')]
-        [string]$LogLevel = 'Information'
+        [Parameter(Mandatory = $true)]  [string]$OutputPath,
+        [Parameter(Mandatory = $false)] [array]$Categories = @(),
+        [Parameter(Mandatory = $false)] [int]$MaxParallelJobs = 10,
+        [Parameter(Mandatory = $false)] [string]$LogLevel = 'Information'
     )
-    
-    $engineStart = Get-Date
-    
+
+    # -----------------------------------------------------------------------
+    # SETUP
+    # -----------------------------------------------------------------------
+
+    $engineStart     = Get-Date
+    $runId           = [System.Guid]::NewGuid().ToString().Substring(0, 8).ToUpper()
+    $scriptRoot      = Split-Path -Parent $PSScriptRoot   # ADHealthCheck root
+    $coreRoot        = $PSScriptRoot                       # Core/ directory
+    $definitionsPath = Join-Path $scriptRoot 'Definitions'
+    $configPath      = Join-Path $scriptRoot 'Config'
+    $checksPath      = Join-Path $scriptRoot 'Checks'
+
+    # Ensure output dirs exist
+    foreach ($dir in @($OutputPath, (Join-Path $OutputPath 'logs'))) {
+        if (-not (Test-Path $dir)) { $null = New-Item -ItemType Directory -Path $dir -Force }
+    }
+
+    Write-Host ""
+    Write-Host "  [Engine] Run ID : $runId" -ForegroundColor DarkCyan
+    Write-Host "  [Engine] Output : $OutputPath" -ForegroundColor DarkCyan
+    Write-Host ""
+
+    # -----------------------------------------------------------------------
+    # PHASE 1: LOAD MODULES
+    # -----------------------------------------------------------------------
+
+    Write-Host "[Phase 1/7] Loading core modules..." -ForegroundColor Yellow
+
+    $modules = @('Logger','Compatibility','Discovery','Executor','Evaluator','Scorer','HtmlReporter','DatabaseOperations')
+
+    foreach ($mod in $modules) {
+        $modPath = Join-Path $coreRoot "$mod.ps1"
+        if (-not (Test-Path $modPath)) {
+            # DatabaseOperations is optional (stub)
+            if ($mod -eq 'DatabaseOperations') {
+                Write-Host "  SKIP $mod (not found - trending disabled)" -ForegroundColor DarkGray
+                continue
+            }
+            throw "Critical module missing: $modPath"
+        }
+        try {
+            . $modPath
+            Write-Host "  OK   $mod" -ForegroundColor Green
+        }
+        catch {
+            throw "Failed to load module '$mod': $($_.Exception.Message)"
+        }
+    }
+
+    # Init logger
+    $logFile = Join-Path $OutputPath "logs\ADHealthCheck-$runId.log"
+    Initialize-Logger -LogPath $logFile -LogLevel $LogLevel
+    Write-Log -Level Information -Message "=== AD Health Check v1.1.0-beta1 | RunID=$runId ==="
+    Write-Host ""
+
+    # -----------------------------------------------------------------------
+    # PHASE 2: DISCOVERY
+    # -----------------------------------------------------------------------
+
+    Write-Host "[Phase 2/7] Discovering AD topology..." -ForegroundColor Yellow
+    Write-Log -Level Information -Message "Phase 2: AD Discovery"
+
     try {
-        # =====================================================================
-        # PHASE 1: INITIALIZATION
-        # =====================================================================
-        
-        Write-Host "`n========================================" -ForegroundColor Cyan
-        Write-Host " AD HEALTH CHECK - EXECUTION START" -ForegroundColor Cyan
-        Write-Host "========================================`n" -ForegroundColor Cyan
-        
-        # Initialize logger
-        $logPath = Join-Path $OutputPath "logs\healthcheck_$(Get-Date -Format 'yyyyMMdd_HHmmss').log"
-        Initialize-Logger -LogLevel $LogLevel -LogFilePath $logPath
-        
-        Write-LogInfo "===== PHASE 1: INITIALIZATION =====" -Category "Engine"
-        
-        # Load configuration
-        Write-LogInfo "Loading configuration..." -Category "Engine"
-        $config = Get-Configuration -ConfigPath $ConfigPath
-        $thresholds = Get-Thresholds -ThresholdsPath $ThresholdsPath
-        
-        # Initialize database connection
-        Write-LogInfo "Initializing database connection..." -Category "Engine"
-        $databasePath = Join-Path $OutputPath "healthcheck.db"
-        $dbConnection = Initialize-DatabaseConnection -DatabasePath $databasePath
-        
-        # Create run record
-        $runId = [Guid]::NewGuid().ToString()
-        Write-LogInfo "Run ID: $runId" -Category "Engine"
-        
-        # =====================================================================
-        # PHASE 2: DISCOVERY
-        # =====================================================================
-        
-        Write-LogInfo "`n===== PHASE 2: AD TOPOLOGY DISCOVERY =====" -Category "Engine"
-        
-        $inventory = Invoke-ADDiscovery `
-            -IncludePerformanceCounters $config.discovery.includeDCPerformanceCounters `
-            -ConnectionTimeout $config.discovery.connectionTimeoutSeconds
-        
-        # Save inventory to database
-        Save-InventoryToDatabase -RunId $runId -Inventory $inventory -Connection $dbConnection
-        
-        # =====================================================================
-        # PHASE 3: LOAD CHECK DEFINITIONS
-        # =====================================================================
-        
-        Write-LogInfo "`n===== PHASE 3: LOADING CHECK DEFINITIONS =====" -Category "Engine"
-        
-        $checkDefinitions = Get-CheckDefinitions `
-            -DefinitionsPath "$PSScriptRoot\..\Definitions" `
-            -Categories $Categories `
-            -EnabledOnly $true
-        
-        Write-LogInfo "Loaded $($checkDefinitions.Count) check definitions" -Category "Engine"
-        
-        # Save check definitions to database
-        Save-CheckDefinitionsToDatabase -Definitions $checkDefinitions -Connection $dbConnection
-        
-        # =====================================================================
-        # PHASE 4: EXECUTE CHECKS
-        # =====================================================================
-        
-        Write-LogInfo "`n===== PHASE 4: CHECK EXECUTION =====" -Category "Engine"
-        
-        $checkResults = Invoke-ParallelCheckExecution `
+        $inventory = Invoke-ADDiscovery
+        Write-Log -Level Information -Message "Discovery OK. Forest=$($inventory.ForestName) DCs=$(@($inventory.DomainControllers).Count) Sites=$(@($inventory.Sites).Count)"
+        Write-Host "  Forest  : $($inventory.ForestName)" -ForegroundColor White
+        Write-Host "  DCs     : $(@($inventory.DomainControllers).Count)" -ForegroundColor White
+        Write-Host "  Sites   : $(@($inventory.Sites).Count)" -ForegroundColor White
+        Write-Host "  Subnets : $(@($inventory.Subnets).Count)" -ForegroundColor White
+        Write-Host ""
+    }
+    catch {
+        Write-Log -Level Error -Message "Discovery failed: $($_.Exception.Message)"
+        throw "Phase 2 (Discovery) failed: $($_.Exception.Message)"
+    }
+
+    # -----------------------------------------------------------------------
+    # PHASE 3: LOAD DEFINITIONS
+    # -----------------------------------------------------------------------
+
+    Write-Host "[Phase 3/7] Loading check definitions..." -ForegroundColor Yellow
+    Write-Log -Level Information -Message "Phase 3: Load Definitions from $definitionsPath"
+
+    $checkDefinitions = @()
+    $defFiles = @(Get-ChildItem -Path $definitionsPath -Filter '*.json' -ErrorAction SilentlyContinue)
+
+    if ($defFiles.Count -eq 0) {
+        throw "No definition files found in: $definitionsPath"
+    }
+
+    foreach ($f in $defFiles) {
+        $cat = [System.IO.Path]::GetFileNameWithoutExtension($f.Name)
+
+        if (@($Categories).Count -gt 0 -and $Categories -notcontains $cat) {
+            Write-Log -Level Verbose -Message "Skipping category: $cat"
+            continue
+        }
+
+        try {
+            $raw  = Get-Content -Path $f.FullName -Raw -Encoding UTF8
+            $defs = @($raw | ConvertFrom-Json)
+            $checkDefinitions += $defs
+            Write-Host "  $($f.Name) - $($defs.Count) checks" -ForegroundColor Gray
+            Write-Log -Level Verbose -Message "Loaded $($defs.Count) checks from $($f.Name)"
+        }
+        catch {
+            Write-Warning "  SKIP $($f.Name): $($_.Exception.Message)"
+            Write-Log -Level Warning -Message "Failed to parse $($f.Name): $($_.Exception.Message)"
+        }
+    }
+
+    $totalChecks = @($checkDefinitions).Count
+    Write-Host "  Total: $totalChecks checks" -ForegroundColor White
+    Write-Log -Level Information -Message "Definitions loaded: $totalChecks checks"
+    Write-Host ""
+
+    if ($totalChecks -eq 0) { throw "No checks loaded from: $definitionsPath" }
+
+    # -----------------------------------------------------------------------
+    # PHASE 4: EXECUTION
+    # -----------------------------------------------------------------------
+
+    Write-Host "[Phase 4/7] Executing $totalChecks checks (max $MaxParallelJobs parallel)..." -ForegroundColor Yellow
+    Write-Log -Level Information -Message "Phase 4: Execution (MaxParallelJobs=$MaxParallelJobs)"
+
+    try {
+        $executionResults = Invoke-CheckExecution `
             -CheckDefinitions $checkDefinitions `
             -Inventory $inventory `
-            -MaxParallelJobs $MaxParallelJobs `
-            -ExecutionTimeout $config.execution.executionTimeoutSeconds
-        
-        # Save check results to database
-        Save-CheckResultsToDatabase -RunId $runId -Results $checkResults -Connection $dbConnection
-        
-        # =====================================================================
-        # PHASE 5: EVALUATE RESULTS
-        # =====================================================================
-        
-        Write-LogInfo "`n===== PHASE 5: RESULT EVALUATION =====" -Category "Engine"
-        
-        $evaluatedResults = Invoke-ResultEvaluation `
-            -CheckResults $checkResults `
-            -CheckDefinitions $checkDefinitions `
-            -Thresholds $thresholds
-        
-        # Save issues to database
-        Save-IssuesToDatabase -RunId $runId -Results $evaluatedResults -Connection $dbConnection
-        
-        # =====================================================================
-        # PHASE 6: CALCULATE SCORES
-        # =====================================================================
-        
-        Write-LogInfo "`n===== PHASE 6: HEALTH SCORING =====" -Category "Engine"
-        
-        # Convert PSCustomObject to Hashtable (PS 5.1 - ConvertFrom-Json returns PSCustomObject)
-        $severityWeightsHash = @{}
-        $config.scoring.severityWeights.PSObject.Properties | ForEach-Object {
-            $severityWeightsHash[$_.Name] = $_.Value
-        }
+            -ChecksPath $checksPath `
+            -MaxParallelJobs $MaxParallelJobs
 
-        $categoryWeightsHash = @{}
-        $config.scoring.categoryWeights.PSObject.Properties | ForEach-Object {
-            $categoryWeightsHash[$_.Name] = $_.Value
-        }
+        $successCount = @($executionResults | Where-Object { $_.Status -eq 'Completed' }).Count
+        $errorCount   = @($executionResults | Where-Object { $_.Status -eq 'Error' }).Count
+        $timeoutCount = @($executionResults | Where-Object { $_.TimedOut -eq $true }).Count
 
-        $scores = Invoke-HealthScoring `
+        Write-Host "  Completed : $successCount" -ForegroundColor Green
+        if ($errorCount   -gt 0) { Write-Host "  Errors    : $errorCount"   -ForegroundColor Red    }
+        if ($timeoutCount -gt 0) { Write-Host "  Timeouts  : $timeoutCount" -ForegroundColor Yellow }
+        Write-Log -Level Information -Message "Execution OK. Completed=$successCount Errors=$errorCount Timeouts=$timeoutCount"
+        Write-Host ""
+    }
+    catch {
+        Write-Log -Level Error -Message "Execution failed: $($_.Exception.Message)"
+        throw "Phase 4 (Execution) failed: $($_.Exception.Message)"
+    }
+
+    # -----------------------------------------------------------------------
+    # PHASE 5: EVALUATION
+    # -----------------------------------------------------------------------
+
+    Write-Host "[Phase 5/7] Evaluating results against rules..." -ForegroundColor Yellow
+    Write-Log -Level Information -Message "Phase 5: Evaluation"
+
+    try {
+        $evaluatedResults = Invoke-ResultEvaluation -ExecutionResults $executionResults
+
+        $passCount = @($evaluatedResults | Where-Object { $_.EvaluationStatus -eq 'Pass'    }).Count
+        $warnCount = @($evaluatedResults | Where-Object { $_.EvaluationStatus -eq 'Warning' }).Count
+        $failCount = @($evaluatedResults | Where-Object { $_.EvaluationStatus -eq 'Fail'    }).Count
+
+        Write-Host "  Pass    : $passCount" -ForegroundColor Green
+        Write-Host "  Warning : $warnCount" -ForegroundColor Yellow
+        Write-Host "  Fail    : $failCount" -ForegroundColor Red
+        Write-Log -Level Information -Message "Evaluation OK. Pass=$passCount Warning=$warnCount Fail=$failCount"
+        Write-Host ""
+    }
+    catch {
+        Write-Log -Level Error -Message "Evaluation failed: $($_.Exception.Message)"
+        throw "Phase 5 (Evaluation) failed: $($_.Exception.Message)"
+    }
+
+    # -----------------------------------------------------------------------
+    # PHASE 6: SCORING
+    # -----------------------------------------------------------------------
+
+    Write-Host "[Phase 6/7] Calculating health score..." -ForegroundColor Yellow
+    Write-Log -Level Information -Message "Phase 6: Scoring"
+
+    # Load settings - always returns Hashtable (ConvertTo-HashtableDeep handles PS 5.1 PSCustomObject)
+    $settings = Get-JsonConfig -Path (Join-Path $configPath 'settings.json') -DefaultValue @{
+        Scoring = @{
+            SeverityWeights = @{ critical=10; high=5; medium=2; low=1; informational=0 }
+            BaseScore  = 100
+            MaxPenalty = 100
+        }
+    }
+
+    # Extract severity weights - guaranteed to be a Hashtable
+    $scoringSection = $settings['Scoring']
+    if ($null -eq $scoringSection) { $scoringSection = @{} }
+
+    $severityWeights = $scoringSection['SeverityWeights']
+    if ($null -eq $severityWeights -or $severityWeights -isnot [System.Collections.Hashtable]) {
+        Write-Log -Level Warning -Message "SeverityWeights missing or invalid - using defaults"
+        $severityWeights = @{ critical=10; high=5; medium=2; low=1; informational=0 }
+    }
+
+    try {
+        $scoreResult = Invoke-HealthScoring `
             -EvaluatedResults $evaluatedResults `
-            -SeverityWeights $severityWeightsHash `
-            -CategoryWeights $categoryWeightsHash
-        
-        # Save scores to database
-        Save-ScoresToDatabase -RunId $runId -Scores $scores -Connection $dbConnection
-        
-        # =====================================================================
-        # PHASE 7: UPDATE RUN RECORD
-        # =====================================================================
-        
-        Write-LogInfo "`n===== PHASE 7: FINALIZING RUN =====" -Category "Engine"
-        
-        $runSummary = [PSCustomObject]@{
-            RunId = $runId
-            StartTime = $engineStart
-            EndTime = Get-Date
-            ForestName = $inventory.ForestInfo.Name
-            DomainName = $inventory.ForestInfo.RootDomain
-            ExecutedBy = $env:USERNAME
-            ExecutionHost = $env:COMPUTERNAME
-            Status = 'Completed'
-            OverallScore = $scores.OverallScore
-            TotalChecks = @($checkResults).Count
-            PassedChecks = @($evaluatedResults | Where-Object { $_.EvaluationStatus -eq 'Pass' }).Count
-            WarningChecks = @($evaluatedResults | Where-Object { $_.EvaluationStatus -eq 'Warning' }).Count
-            FailedChecks = @($evaluatedResults | Where-Object { $_.EvaluationStatus -eq 'Fail' }).Count
-            CriticalIssues = @($evaluatedResults | ForEach-Object { $_.Issues } | Where-Object { $_.Severity -eq 'Critical' }).Count
-            HighIssues = @($evaluatedResults | ForEach-Object { $_.Issues } | Where-Object { $_.Severity -eq 'High' }).Count
-            MediumIssues = @($evaluatedResults | ForEach-Object { $_.Issues } | Where-Object { $_.Severity -eq 'Medium' }).Count
-            LowIssues = @($evaluatedResults | ForEach-Object { $_.Issues } | Where-Object { $_.Severity -eq 'Low' }).Count
-        }
-        
-        # Update run record in database
-        Update-RunRecord -Summary $runSummary -Connection $dbConnection
-        
-        # =====================================================================
-        # PHASE 8: GENERATE REPORTS
-        # =====================================================================
-        
-        Write-LogInfo "`n===== PHASE 8: REPORT GENERATION =====" -Category "Engine"
-        
-        $reportPath = Join-Path $OutputPath "HealthCheck_$(Get-Date -Format 'yyyyMMdd_HHmmss')"
-        New-Item -ItemType Directory -Path $reportPath -Force | Out-Null
-        
-        if ($config.reporting.generateJSON) {
-            Write-LogInfo "Generating JSON report..." -Category "Engine"
-            $jsonPath = Join-Path $reportPath "report.json"
-            Export-JsonReport -Summary $runSummary -Scores $scores -Results $evaluatedResults -Path $jsonPath
-        }
-        
-        if ($config.reporting.generateHTML) {
-            Write-LogInfo "Generating HTML report..." -Category "Engine"
-            $htmlPath = Join-Path $reportPath "report.html"
-            Export-HtmlReport -Summary $runSummary -Scores $scores -Results $evaluatedResults -Path $htmlPath
-        }
-        
-        # =====================================================================
-        # COMPLETION
-        # =====================================================================
-        
-        $totalDuration = ((Get-Date) - $engineStart).TotalSeconds
-        
-        Write-Host "`n========================================" -ForegroundColor Green
-        Write-Host " HEALTH CHECK COMPLETED SUCCESSFULLY" -ForegroundColor Green
-        Write-Host "========================================`n" -ForegroundColor Green
-        
-        Write-LogInfo "Execution Summary:" -Category "Engine"
-        Write-LogInfo "  Run ID: $runId" -Category "Engine"
-        Write-LogInfo "  Forest: $($inventory.ForestInfo.Name)" -Category "Engine"
-        Write-LogInfo "  Overall Score: $($scores.OverallScore)/100 ($(Get-ScoreRating -Score $scores.OverallScore))" -Category "Engine"
-        Write-LogInfo "  Checks Executed: $($runSummary.TotalChecks)" -Category "Engine"
-        Write-LogInfo "    Passed: $($runSummary.PassedChecks)" -Category "Engine"
-        Write-LogInfo "    Warning: $($runSummary.WarningChecks)" -Category "Engine"
-        Write-LogInfo "    Failed: $($runSummary.FailedChecks)" -Category "Engine"
-        Write-LogInfo "  Issues Detected:" -Category "Engine"
-        Write-LogInfo "    Critical: $($runSummary.CriticalIssues)" -Category "Engine"
-        Write-LogInfo "    High: $($runSummary.HighIssues)" -Category "Engine"
-        Write-LogInfo "    Medium: $($runSummary.MediumIssues)" -Category "Engine"
-        Write-LogInfo "    Low: $($runSummary.LowIssues)" -Category "Engine"
-        Write-LogInfo "  Total Duration: $([math]::Round($totalDuration, 2))s" -Category "Engine"
-        Write-LogInfo "  Reports: $reportPath" -Category "Engine"
-        
-        # Add report path to summary
-        $runSummary | Add-Member -NotePropertyName 'ReportPath' -NotePropertyValue $reportPath -Force
-        
-        # Close database connection
-        
-        # Close database connection
-        Close-DatabaseConnection -Connection $dbConnection
-        
-        # Close logger
-        Close-Logger
-        
-        return $runSummary
+            -SeverityWeights $severityWeights
+
+        $scoreColor = if ($scoreResult.OverallScore -ge 85) { 'Green' }
+                      elseif ($scoreResult.OverallScore -ge 70) { 'Yellow' }
+                      else { 'Red' }
+
+        Write-Host "  Score : $($scoreResult.OverallScore)/100 (Grade $($scoreResult.Grade))" -ForegroundColor $scoreColor
+        Write-Log -Level Information -Message "Scoring OK. Score=$($scoreResult.OverallScore) Grade=$($scoreResult.Grade)"
+        Write-Host ""
     }
     catch {
-        Write-LogError "Health check engine failed: $($_.Exception.Message)" -Category "Engine" -Exception $_.Exception
-        
-        # Attempt to update run status to failed
-        if ($dbConnection) {
-            try {
-                $failedSummary = [PSCustomObject]@{
-                    RunId = $runId
-                    Status = 'Failed'
-                    EndTime = Get-Date
-                }
-                Update-RunRecord -Summary $failedSummary -Connection $dbConnection
-            }
-            catch {
-                Write-LogWarning "Could not update run status: $($_.Exception.Message)" -Category "Engine"
-            }
-        }
-        
-        throw
+        Write-Log -Level Error -Message "Scoring failed: $($_.Exception.Message)"
+        throw "Phase 6 (Scoring) failed: $($_.Exception.Message)"
     }
-}
 
-# =============================================================================
-# HELPER FUNCTIONS (Stubs - to be implemented with database module)
-# =============================================================================
+    # -----------------------------------------------------------------------
+    # PHASE 7: REPORT
+    # -----------------------------------------------------------------------
 
-function Get-Configuration {
-    param([string]$ConfigPath)
-    
-    if (Test-Path $ConfigPath) {
-        return Get-Content $ConfigPath -Raw | ConvertFrom-Json
-    }
-    
-    # Return defaults
-    return [PSCustomObject]@{
-        execution = @{ executionTimeoutSeconds = 300 }
-        discovery = @{ includeDCPerformanceCounters = $false; connectionTimeoutSeconds = 30 }
-        scoring = @{ 
-            severityWeights = @{ Critical = 10; High = 5; Medium = 2; Low = 1 }
-            categoryWeights = @{ Replication = 25; DCHealth = 20; DNS = 15 }
-        }
-        reporting = @{ generateJSON = $true; generateHTML = $true }
-    }
-}
+    Write-Host "[Phase 7/7] Generating HTML report..." -ForegroundColor Yellow
+    Write-Log -Level Information -Message "Phase 7: HTML Report"
 
-function Get-Thresholds {
-    param([string]$ThresholdsPath)
-    
-    if (Test-Path $ThresholdsPath) {
-        return Get-Content $ThresholdsPath -Raw | ConvertFrom-Json
-    }
-    
-    return @{}
-}
+    $reportFileName = "ADHealthCheck-$($inventory.ForestName)-$(Get-Date -Format 'yyyyMMdd-HHmmss')-$runId.html"
+    $reportPath     = Join-Path $OutputPath $reportFileName
 
-function Get-CheckDefinitions {
-    param([string]$DefinitionsPath, [array]$Categories, [bool]$EnabledOnly)
-    
-    Write-LogInfo "Loading check definitions from: $DefinitionsPath" -Category "Engine"
-    
-    $allChecks = @()
-    
     try {
-        # Get all JSON definition files
-        $definitionFiles = Get-ChildItem -Path $DefinitionsPath -Filter "*.json" -File -ErrorAction Stop
-        
-        foreach ($file in $definitionFiles) {
-            try {
-                Write-LogVerbose "Loading definitions from: $($file.Name)" -Category "Engine"
-                
-                $content = Get-Content -Path $file.FullName -Raw | ConvertFrom-Json
-                
-                # Extract checks from file
-                foreach ($check in $content.Checks) {
-                    # Filter by category if specified
-                    if ($Categories.Count -gt 0 -and $check.CategoryId -notin $Categories) {
-                        continue
-                    }
-                    
-                    # Filter by enabled status
-                    if ($EnabledOnly -and -not $check.IsEnabled) {
-                        continue
-                    }
-                    
-                    # Make script path absolute
-                    if ($check.ScriptPath -like "..*") {
-                        $check.ScriptPath = Join-Path $DefinitionsPath $check.ScriptPath
-                        $check.ScriptPath = [System.IO.Path]::GetFullPath($check.ScriptPath)
-                    }
-                    
-                    $allChecks += $check
-                }
-                
-                Write-LogVerbose "Loaded $($content.Checks.Count) check(s) from $($file.Name)" -Category "Engine"
-            }
-            catch {
-                Write-LogWarning "Failed to load definitions from $($file.Name): $($_.Exception.Message)" -Category "Engine"
-            }
+        New-HtmlReport `
+            -ScoreResult      $scoreResult `
+            -EvaluatedResults $evaluatedResults `
+            -Inventory        $inventory `
+            -RunId            $runId `
+            -OutputPath       $reportPath `
+            -GeneratedAt      $engineStart
+
+        Write-Host "  Report : $reportPath" -ForegroundColor Cyan
+        Write-Log -Level Information -Message "Report saved: $reportPath"
+
+        if ([System.Environment]::UserInteractive) {
+            Start-Process $reportPath -ErrorAction SilentlyContinue
         }
-        
-        Write-LogInfo "Loaded $($allChecks.Count) check definition(s)" -Category "Engine"
-        
-        return $allChecks
     }
     catch {
-        Write-LogError "Failed to load check definitions: $($_.Exception.Message)" -Category "Engine"
-        return @()
+        Write-Log -Level Error -Message "Report generation failed: $($_.Exception.Message)"
+        Write-Warning "  Report generation failed: $($_.Exception.Message)"
+        $reportPath = "GENERATION_FAILED"
     }
-}
 
-function Initialize-DatabaseConnection {
-    param([string]$DatabasePath)
-    Write-LogInfo "Database connection initialized (stub)" -Category "Engine"
-    return $null
-}
+    Write-Host ""
 
-function Close-DatabaseConnection {
-    param($Connection)
-    Write-LogVerbose "Database connection closed" -Category "Engine"
-}
+    # -----------------------------------------------------------------------
+    # OPTIONAL: DATABASE SAVE
+    # -----------------------------------------------------------------------
 
-function Save-InventoryToDatabase {
-    param($RunId, $Inventory, $Connection)
-    Write-LogVerbose "Saving inventory to database..." -Category "Engine"
-    
-    try {
-        # Save forest info
-        Save-InventoryItem -Connection $Connection -RunId $RunId `
-            -ItemType "Forest" -ItemName $Inventory.ForestInfo.Name `
-            -Properties $Inventory.ForestInfo
-        
-        # Save domains
-        foreach ($domain in $Inventory.Domains) {
-            Save-InventoryItem -Connection $Connection -RunId $RunId `
-                -ItemType "Domain" -ItemName $domain.Name `
-                -ParentItem $Inventory.ForestInfo.Name `
-                -Properties $domain
+    # Suppress noisy "Connection is null" warnings - log at Verbose only
+    if (Get-Command -Name 'Save-RunToDatabase' -ErrorAction SilentlyContinue) {
+        try {
+            Save-RunToDatabase -ScoreResult $scoreResult -EvaluatedResults $evaluatedResults -RunId $runId
         }
-        
-        # Save DCs
-        foreach ($dc in $Inventory.DomainControllers) {
-            Save-InventoryItem -Connection $Connection -RunId $RunId `
-                -ItemType "DomainController" -ItemName $dc.Name `
-                -ParentItem $dc.Domain `
-                -Properties $dc
+        catch {
+            # Database is optional (stub) - only log at Verbose, no console noise
+            Write-Log -Level Verbose -Message "Database save skipped: $($_.Exception.Message)"
         }
-        
-        Write-LogInfo "Inventory saved to database" -Category "Engine"
     }
-    catch {
-        Write-LogWarning "Failed to save inventory to database: $($_.Exception.Message)" -Category "Engine"
+
+    # -----------------------------------------------------------------------
+    # BUILD RESULT OBJECT
+    # -----------------------------------------------------------------------
+
+    $runSummary = [PSCustomObject]@{
+        RunId           = $runId
+        ForestName      = $inventory.ForestName
+        GeneratedAt     = $engineStart
+        DurationSeconds = ((Get-Date) - $engineStart).TotalSeconds
+
+        OverallScore    = $scoreResult.OverallScore
+        Grade           = $scoreResult.Grade
+
+        TotalChecks     = @($evaluatedResults).Count
+        PassedChecks    = @($evaluatedResults | Where-Object { $_.EvaluationStatus -eq 'Pass'    }).Count
+        WarningChecks   = @($evaluatedResults | Where-Object { $_.EvaluationStatus -eq 'Warning' }).Count
+        FailedChecks    = @($evaluatedResults | Where-Object { $_.EvaluationStatus -eq 'Fail'    }).Count
+
+        CriticalIssues  = $scoreResult.CriticalCount
+        HighIssues      = $scoreResult.HighCount
+        MediumIssues    = $scoreResult.MediumCount
+        LowIssues       = $scoreResult.LowCount
+
+        LogPath         = $logFile
     }
+
+    # ReportPath added via Add-Member to avoid timing issues with variable scope
+    $runSummary | Add-Member -NotePropertyName 'ReportPath' -NotePropertyValue $reportPath -Force
+
+    Write-Log -Level Information -Message "=== Engine finished. Score=$($runSummary.OverallScore) Duration=$([math]::Round($runSummary.DurationSeconds,1))s ==="
+
+    return $runSummary
 }
-
-function Save-CheckDefinitionsToDatabase {
-    param($Definitions, $Connection)
-    Write-LogVerbose "Check definitions saved to database (stub)" -Category "Engine"
-}
-
-function Save-CheckResultsToDatabase {
-    param($RunId, $Results, $Connection)
-    Write-LogVerbose "Saving check results to database..." -Category "Engine"
-    
-    try {
-        foreach ($result in $Results) {
-            Save-CheckResult -Connection $Connection -RunId $RunId -Result $result
-        }
-        Write-LogInfo "Saved $($Results.Count) check result(s) to database" -Category "Engine"
-    }
-    catch {
-        Write-LogWarning "Failed to save check results: $($_.Exception.Message)" -Category "Engine"
-    }
-}
-
-function Save-IssuesToDatabase {
-    param($RunId, $Results, $Connection)
-    Write-LogVerbose "Saving issues to database..." -Category "Engine"
-    
-    try {
-        $issueCount = 0
-        foreach ($result in $Results) {
-            if ($result.Issues -and $result.Issues.Count -gt 0) {
-                foreach ($issue in $result.Issues) {
-                    Save-Issue -Connection $Connection -RunId $RunId `
-                        -ResultId ([Guid]::NewGuid().ToString()) `
-                        -CheckId $result.CheckId -Issue $issue
-                    $issueCount++
-                }
-            }
-        }
-        Write-LogInfo "Saved $issueCount issue(s) to database" -Category "Engine"
-    }
-    catch {
-        Write-LogWarning "Failed to save issues: $($_.Exception.Message)" -Category "Engine"
-    }
-}
-
-function Save-ScoresToDatabase {
-    param($RunId, $Scores, $Connection)
-    Write-LogVerbose "Saving scores to database..." -Category "Engine"
-    
-    try {
-        # Save overall score
-        Save-Score -Connection $Connection -RunId $RunId `
-            -CategoryId $null -ScoreValue $Scores.OverallScore `
-            -ChecksExecuted 0 -ChecksPassed 0
-        
-        # Save category scores
-        foreach ($catScore in $Scores.CategoryScores) {
-            Save-Score -Connection $Connection -RunId $RunId `
-                -CategoryId $catScore.CategoryId -ScoreValue $catScore.ScoreValue `
-                -ChecksExecuted $catScore.ChecksExecuted -ChecksPassed $catScore.ChecksPassed
-        }
-        
-        Write-LogInfo "Saved overall and category scores to database" -Category "Engine"
-    }
-    catch {
-        Write-LogWarning "Failed to save scores: $($_.Exception.Message)" -Category "Engine"
-    }
-}
-
-function Update-RunRecord {
-    param($Summary, $Connection)
-    Write-LogVerbose "Run record updated (stub)" -Category "Engine"
-}
-
-function Export-JsonReport {
-    param($Summary, $Scores, $Results, $Path)
-    
-    $report = @{
-        Summary = $Summary
-        Scores = $Scores
-        Results = $Results
-    } | ConvertTo-Json -Depth 10
-    
-    $report | Out-File -FilePath $Path -Encoding UTF8
-    Write-LogInfo "JSON report exported: $Path" -Category "Engine"
-}
-
-function Export-HtmlReport {
-    param($Summary, $Scores, $Results, $Path)
-    
-    # Use enhanced HTML reporter
-    Export-EnhancedHtmlReport -Summary $Summary -Scores $Scores -Results $Results -Path $Path
-    Write-LogInfo "Enhanced HTML report exported: $Path" -Category "Engine"
-}
-
-# =============================================================================
-# EXPORT MODULE MEMBERS
-# =============================================================================
-
-
-
-

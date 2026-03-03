@@ -1,97 +1,132 @@
-{
-  "Category": "DCHealth",
-  "Description": "Domain Controller health, services, and performance checks",
-  "Version": "1.0",
-  "Checks": [
-    {
-      "CheckId": "DC-001",
-      "CheckName": "Critical Services Status",
-      "CategoryId": "DCHealth",
-      "Description": "Validates that all critical AD services are running on each domain controller (NTDS, Netlogon, DNS, KDC, W32Time).",
-      "Severity": "Critical",
-      "Impact": "Stopped critical services prevent DC from functioning properly, causing authentication failures and service outages.",
-      "Probability": "Low",
-      "Effort": "Low",
-      "ScriptPath": "../Checks/DCHealth/Test-CriticalServices.ps1",
-      "EvaluationRules": {
-        "Rules": [
-          {
-            "Condition": "Any(ServiceStatus == 'Stopped')",
-            "Status": "Fail",
-            "Title": "Critical Service Stopped",
-            "Description": "One or more critical AD services are not running"
-          }
-        ]
+[
+  {
+    "CheckId": "DC-001",
+    "CheckName": "Critical Services Status",
+    "Category": "DCHealth",
+    "ScriptPath": "Test-CriticalServices.ps1",
+    "Severity": "critical",
+    "Description": "Verifies critical AD services are running on all domain controllers",
+    "CriticalThreshold": 0,
+    "WarningThreshold": 0,
+    "PassMessage": "All critical services are running on all DCs",
+    "FailMessage": "One or more critical services are stopped",
+    "EvaluationRules": [
+      {
+        "RuleId": "DC-001-STOPPED-STATUS",
+        "Description": "Any service Status is Stopped",
+        "Condition": "Any(Status == 'Stopped')",
+        "Status": "Fail",
+        "Severity": "critical",
+        "Message": "Critical service stopped on a domain controller"
       },
-      "RemediationSteps": "1. Identify which service is stopped\n2. Check Event Viewer for service-specific errors\n3. Attempt to start service: 'net start <servicename>'\n4. If service fails to start, review dependencies\n5. Check for corruption or configuration issues",
-      "KBArticles": [
-        "https://docs.microsoft.com/troubleshoot/windows-server/identity/config-firewall-for-ad-domains-and-trusts"
-      ],
-      "Tags": ["DCHealth", "Services", "Critical", "NTDS", "Netlogon"],
-      "IsEnabled": true,
-      "Version": "1.0"
-    },
-    {
-      "CheckId": "DC-002",
-      "CheckName": "Disk Space",
-      "CategoryId": "DCHealth",
-      "Description": "Checks free disk space on critical volumes (System, Database, Logs, SYSVOL).",
-      "Severity": "High",
-      "Impact": "Low disk space can cause AD database corruption, service failures, and prevent updates.",
-      "Probability": "Medium",
-      "Effort": "Low",
-      "ScriptPath": "../Checks/DCHealth/Test-DiskSpace.ps1",
-      "EvaluationRules": {
-        "Rules": [
-          {
-            "Condition": "SystemDriveFreeGB < 1",
-            "Status": "Fail",
-            "Title": "Critical: System Drive Low Space",
-            "Description": "System drive has less than 1 GB free"
-          },
-          {
-            "Condition": "DatabaseVolumeFreeGB < 5",
-            "Status": "Warning",
-            "Title": "Warning: Database Volume Low Space",
-            "Description": "Database volume has less than 5 GB free"
-          }
-        ]
+      {
+        "RuleId": "DC-001-NOTRUNNING",
+        "Description": "Any service IsRunning is false",
+        "Condition": "Any(IsRunning == false)",
+        "Status": "Fail",
+        "Severity": "critical",
+        "Message": "Critical service not in running state"
       },
-      "RemediationSteps": "1. Identify files consuming space\n2. Clear temp files and logs\n3. Run Disk Cleanup\n4. Check for unnecessary shadow copies\n5. Expand disk if needed\n6. Consider moving database/logs to larger volume",
-      "KBArticles": [
-        "https://docs.microsoft.com/windows-server/administration/windows-commands/cleanmgr"
-      ],
-      "Tags": ["DCHealth", "DiskSpace", "Storage", "Performance"],
-      "IsEnabled": true,
-      "Version": "1.0"
-    },
-    {
-      "CheckId": "DC-003",
-      "CheckName": "DC Reachability",
-      "CategoryId": "DCHealth",
-      "Description": "Tests network connectivity to all domain controllers via ping and DNS resolution.",
-      "Severity": "High",
-      "Impact": "Unreachable DCs cannot service authentication requests or participate in replication.",
-      "Probability": "Low",
-      "Effort": "Low",
-      "ScriptPath": "../Checks/DCHealth/Test-DCReachability.ps1",
-      "EvaluationRules": {
-        "Rules": [
-          {
-            "Condition": "Any(IsReachable == false)",
-            "Status": "Fail",
-            "Title": "Domain Controller Unreachable",
-            "Description": "One or more domain controllers are not responding to network requests"
-          }
-        ]
+      {
+        "RuleId": "DC-001-ISUNHEALTHY",
+        "Description": "IsHealthy flag is false",
+        "Condition": "IsHealthy == false",
+        "Status": "Fail",
+        "Severity": "critical",
+        "Message": "Critical services check reported failure"
+      }
+    ]
+  },
+  {
+    "CheckId": "DC-002",
+    "CheckName": "Disk Space",
+    "Category": "DCHealth",
+    "ScriptPath": "Test-DiskSpace.ps1",
+    "Severity": "high",
+    "Description": "Checks available disk space on all domain controllers",
+    "CriticalThreshold": 5,
+    "WarningThreshold": 15,
+    "PassMessage": "Disk space is adequate on all DCs",
+    "FailMessage": "Low disk space detected on one or more DCs",
+    "EvaluationRules": [
+      {
+        "RuleId": "DC-002-CRITICAL-GB",
+        "Description": "FreeSpaceGB below critical threshold (5GB)",
+        "Condition": "Any(FreeSpaceGB < 5)",
+        "Status": "Fail",
+        "Severity": "critical",
+        "Message": "Critical: disk space below 5GB on a domain controller"
       },
-      "RemediationSteps": "1. Verify DC is powered on\n2. Check network connectivity\n3. Verify firewall rules\n4. Test DNS resolution\n5. Check physical network cable/switch\n6. Review DC event logs if accessible",
-      "KBArticles": [
-        "https://docs.microsoft.com/troubleshoot/windows-server/networking/configure-firewall-for-domains-and-trusts"
-      ],
-      "Tags": ["DCHealth", "Connectivity", "Network", "DNS"],
-      "IsEnabled": true,
-      "Version": "1.0"
-    }
-  ]
-}
+      {
+        "RuleId": "DC-002-WARN-PCT",
+        "Description": "FreeSpacePercent below warning threshold (15%)",
+        "Condition": "Any(FreeSpacePercent < 15)",
+        "Status": "Warning",
+        "Severity": "high",
+        "Message": "Warning: disk free space below 15% on a domain controller"
+      },
+      {
+        "RuleId": "DC-002-HASISSUE",
+        "Description": "Any drive HasIssue flag set",
+        "Condition": "Any(HasIssue == true)",
+        "Status": "Fail",
+        "Severity": "high",
+        "Message": "Disk space issue detected on a domain controller"
+      },
+      {
+        "RuleId": "DC-002-ISUNHEALTHY",
+        "Description": "Root IsHealthy flag is false",
+        "Condition": "IsHealthy == false",
+        "Status": "Fail",
+        "Severity": "high",
+        "Message": "Disk space check reported failure"
+      }
+    ]
+  },
+  {
+    "CheckId": "DC-003",
+    "CheckName": "DC Reachability",
+    "Category": "DCHealth",
+    "ScriptPath": "Test-DCReachability.ps1",
+    "Severity": "critical",
+    "Description": "Verifies all domain controllers are reachable on the network",
+    "CriticalThreshold": 0,
+    "WarningThreshold": 0,
+    "PassMessage": "All domain controllers are reachable",
+    "FailMessage": "One or more domain controllers are unreachable",
+    "EvaluationRules": [
+      {
+        "RuleId": "DC-003-PING-FAILED",
+        "Description": "Any DC PingSuccess is false",
+        "Condition": "Any(PingSuccess == false)",
+        "Status": "Fail",
+        "Severity": "critical",
+        "Message": "Domain controller failed ping check"
+      },
+      {
+        "RuleId": "DC-003-STATUS-UNREACHABLE",
+        "Description": "Any DC Status is Unreachable",
+        "Condition": "Any(Status == 'Unreachable')",
+        "Status": "Fail",
+        "Severity": "critical",
+        "Message": "Domain controller is unreachable"
+      },
+      {
+        "RuleId": "DC-003-HASISSUE",
+        "Description": "Any DC HasIssue flag set",
+        "Condition": "Any(IsHealthy == false)",
+        "Status": "Fail",
+        "Severity": "critical",
+        "Message": "Domain controller reachability issue detected"
+      },
+      {
+        "RuleId": "DC-003-ISUNHEALTHY",
+        "Description": "Root IsHealthy flag is false",
+        "Condition": "IsHealthy == false",
+        "Status": "Fail",
+        "Severity": "critical",
+        "Message": "DC reachability check reported failure"
+      }
+    ]
+  }
+]

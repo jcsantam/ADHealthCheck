@@ -1,75 +1,102 @@
-{
-  "Category": "Time",
-  "Description": "Time synchronization checks for Kerberos authentication",
-  "Version": "1.0",
-  "Checks": [
-    {
-      "CheckId": "TIME-001",
-      "CheckName": "PDC Time Source",
-      "CategoryId": "Time",
-      "Description": "Validates that the PDC Emulator is configured with an external reliable time source.",
-      "Severity": "High",
-      "Impact": "PDC without external time source can cause forest-wide time drift, breaking Kerberos authentication.",
-      "Probability": "Medium",
-      "Effort": "Low",
-      "ScriptPath": "../Checks/Time/Test-PDCTimeSource.ps1",
-      "EvaluationRules": {
-        "Rules": [
-          {
-            "Condition": "HasExternalSource == false",
-            "Status": "Fail",
-            "Title": "PDC Missing External Time Source",
-            "Description": "PDC Emulator is not configured with external NTP server"
-          },
-          {
-            "Condition": "TimeSyncFailing == true",
-            "Status": "Fail",
-            "Title": "PDC Time Sync Failing",
-            "Description": "PDC Emulator cannot reach configured time source"
-          }
-        ]
+[
+  {
+    "CheckId": "TIME-001",
+    "CheckName": "PDC Time Source",
+    "Category": "Time",
+    "ScriptPath": "Test-PDCTimeSource.ps1",
+    "Severity": "critical",
+    "Description": "Verifies the PDC Emulator is configured with a reliable external NTP time source",
+    "CriticalThreshold": 0,
+    "WarningThreshold": 0,
+    "PassMessage": "PDC Emulator has a valid external time source configured",
+    "FailMessage": "PDC Emulator is missing a reliable external NTP time source",
+    "EvaluationRules": [
+      {
+        "RuleId": "TIME-001-NOEXTERNALSOURCE",
+        "Description": "HasExternalSource is false",
+        "Condition": "HasExternalSource == false",
+        "Status": "Fail",
+        "Severity": "critical",
+        "Message": "PDC Emulator has no external NTP time source configured"
       },
-      "RemediationSteps": "1. Configure external NTP on PDC: 'w32tm /config /manualpeerlist:\"time.windows.com\" /syncfromflags:manual /reliable:yes /update'\n2. Restart W32Time: 'net stop w32time && net start w32time'\n3. Force sync: 'w32tm /resync'\n4. Verify: 'w32tm /query /status'\n5. Use reliable NTP sources (time.nist.gov, pool.ntp.org)",
-      "KBArticles": [
-        "https://docs.microsoft.com/troubleshoot/windows-server/identity/configure-authoritative-time-server"
-      ],
-      "Tags": ["Time", "PDC", "NTP", "Critical"],
-      "IsEnabled": true,
-      "Version": "1.0"
-    },
-    {
-      "CheckId": "TIME-002",
-      "CheckName": "DC Time Offset",
-      "CategoryId": "Time",
-      "Description": "Checks time offset between DCs and PDC. Kerberos requires time within 5 minutes.",
-      "Severity": "Critical",
-      "Impact": "Time offset > 5 minutes causes Kerberos authentication failures.",
-      "Probability": "Low",
-      "Effort": "Low",
-      "ScriptPath": "../Checks/Time/Test-DCTimeOffset.ps1",
-      "EvaluationRules": {
-        "Rules": [
-          {
-            "Condition": "Any(OffsetSeconds > 300)",
-            "Status": "Fail",
-            "Title": "Critical: Time Offset Exceeds 5 Minutes",
-            "Description": "DC time offset from PDC exceeds Kerberos tolerance (5 minutes)"
-          },
-          {
-            "Condition": "Any(OffsetSeconds > 120)",
-            "Status": "Warning",
-            "Title": "Warning: Time Offset High",
-            "Description": "DC time offset from PDC exceeds 2 minutes"
-          }
-        ]
+      {
+        "RuleId": "TIME-001-NOTRELIABLE",
+        "Description": "IsReliable is false",
+        "Condition": "IsReliable == false",
+        "Status": "Fail",
+        "Severity": "critical",
+        "Message": "PDC Emulator time source is not reliable"
       },
-      "RemediationSteps": "1. Identify DC with time drift\n2. Force immediate sync: 'w32tm /resync /force'\n3. Check W32Time service status\n4. Verify DC can reach PDC on port 123\n5. Review time service configuration: 'w32tm /query /configuration'\n6. Check if virtualization time sync is interfering",
-      "KBArticles": [
-        "https://docs.microsoft.com/troubleshoot/windows-server/identity/kerberos-authentication-problems-if-device-datetime-out-of-sync"
-      ],
-      "Tags": ["Time", "Kerberos", "Critical", "Offset"],
-      "IsEnabled": true,
-      "Version": "1.0"
-    }
-  ]
-}
+      {
+        "RuleId": "TIME-001-HASISSUE",
+        "Description": "HasIssue flag is true",
+        "Condition": "HasIssue == true",
+        "Status": "Fail",
+        "Severity": "critical",
+        "Message": "PDC time source issue detected"
+      },
+      {
+        "RuleId": "TIME-001-ISUNHEALTHY",
+        "Description": "IsHealthy flag is false",
+        "Condition": "IsHealthy == false",
+        "Status": "Fail",
+        "Severity": "critical",
+        "Message": "PDC time source check reported failure"
+      }
+    ]
+  },
+  {
+    "CheckId": "TIME-002",
+    "CheckName": "DC Time Offset",
+    "Category": "Time",
+    "ScriptPath": "Test-DCTimeOffset.ps1",
+    "Severity": "high",
+    "Description": "Checks that all DCs have time offset within Kerberos tolerance (5 minutes)",
+    "CriticalThreshold": 300,
+    "WarningThreshold": 60,
+    "PassMessage": "All DC time offsets are within acceptable range",
+    "FailMessage": "DC time offset exceeds Kerberos tolerance",
+    "EvaluationRules": [
+      {
+        "RuleId": "TIME-002-CRITICAL-OFFSET",
+        "Description": "OffsetSeconds exceeds Kerberos limit (300s)",
+        "Condition": "Any(OffsetSeconds > 300)",
+        "Status": "Fail",
+        "Severity": "critical",
+        "Message": "DC time offset exceeds 5-minute Kerberos tolerance - authentication failures imminent"
+      },
+      {
+        "RuleId": "TIME-002-WARN-OFFSET",
+        "Description": "OffsetSeconds exceeds warning threshold (60s)",
+        "Condition": "Any(OffsetSeconds > 60)",
+        "Status": "Warning",
+        "Severity": "high",
+        "Message": "DC time offset exceeds 60-second warning threshold"
+      },
+      {
+        "RuleId": "TIME-002-WITHIN-TOLERANCE",
+        "Description": "Any DC WithinTolerance is false",
+        "Condition": "Any(WithinTolerance == false)",
+        "Status": "Fail",
+        "Severity": "critical",
+        "Message": "DC time offset is outside Kerberos tolerance"
+      },
+      {
+        "RuleId": "TIME-002-HASISSUE",
+        "Description": "Any DC HasIssue flag set",
+        "Condition": "Any(HasIssue == true)",
+        "Status": "Fail",
+        "Severity": "high",
+        "Message": "DC time offset issue detected"
+      },
+      {
+        "RuleId": "TIME-002-ISUNHEALTHY",
+        "Description": "Root IsHealthy flag is false",
+        "Condition": "IsHealthy == false",
+        "Status": "Fail",
+        "Severity": "high",
+        "Message": "DC time offset check reported failure"
+      }
+    ]
+  }
+]
