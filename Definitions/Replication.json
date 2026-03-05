@@ -22,7 +22,7 @@
       {
         "RuleId": "REP-001-LASTRESULT-FAIL",
         "Description": "Any replication partner last sync result is failed",
-        "Condition": "Any(LastSyncResult == 'Failed')",
+        "Condition": "Any(LastSyncResult != 0)",
         "Status": "Fail",
         "Severity": "critical",
         "Message": "Replication last sync result shows failure"

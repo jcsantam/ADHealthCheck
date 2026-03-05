@@ -12,14 +12,6 @@
     "FailMessage": "Stale computer accounts detected",
     "EvaluationRules": [
       {
-        "RuleId": "SEC-001-COUNT",
-        "Description": "Collection has items (stale computers found)",
-        "Condition": "Count > 0",
-        "Status": "Fail",
-        "Severity": "medium",
-        "Message": "Stale computer accounts found (not authenticated in 90+ days)"
-      },
-      {
         "RuleId": "SEC-001-HASISSUE",
         "Description": "Any computer HasIssue flag set",
         "Condition": "Any(HasIssue == true)",

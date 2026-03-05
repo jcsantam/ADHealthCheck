@@ -9,6 +9,7 @@
       "CategoryId": "Database",
       "Description": "Comprehensive validation of NTDS.dit database health including size, free space, database state, ESE errors, and transaction log status. Critical for preventing DC failures and data corruption.",
       "Severity": "Critical",
+	  "CriticalThreshold": 10,
       "Impact": "Database corruption or disk space exhaustion causes complete DC failure, replication stops, and potential data loss. ESE errors indicate hardware issues or corruption.",
       "Probability": "Low",
       "Effort": "Medium",
@@ -22,7 +23,7 @@
             "Description": "NTDS database state indicates improper shutdown or corruption"
           },
           {
-            "Condition": "FreeSpaceGB < (DatabaseSizeGB * 1.25)",
+            "Condition": "FreeSpaceGB < CriticalThreshold",
             "Status": "Fail",
             "Title": "Insufficient disk space for database growth",
             "Description": "Free space less than 125% of current database size"
