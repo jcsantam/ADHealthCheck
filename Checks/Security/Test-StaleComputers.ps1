@@ -58,8 +58,8 @@ try {
         try {
             # Get all computer accounts
             $computers = Get-ADComputer -Filter * -Properties `
-                LastLogonDate, PasswordLastSet, Enabled, DistinguishedName, OperatingSystem, Created `
-                -Server $domain.Name -ErrorAction Stop
+                  LastLogonDate, PasswordLastSet, Enabled, DistinguishedName, OperatingSystem, Created `
+                  -Server $domain.Name -ResultPageSize 500 -ErrorAction Stop
             
             Write-Verbose "[SEC-001] Found $($computers.Count) computer accounts in $($domain.Name)"
             

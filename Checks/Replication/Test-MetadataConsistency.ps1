@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Metadata Consistency Check (REP-008)
 
@@ -41,12 +41,12 @@ try {
         try {
             # Get all DC computer objects from AD
             $dcComputers = Get-ADComputer -Filter {PrimaryGroupID -eq 516} `
-                -Server $domain.Name -ErrorAction Stop
+                -Server $domain.Name -ResultPageSize 500 -ErrorAction Stop
             
             # Get all DC server objects
             $dcServers = Get-ADObject -Filter {objectClass -eq 'server'} `
                 -SearchBase "CN=Sites,CN=Configuration,$((Get-ADDomain -Server $domain.Name).DistinguishedName)" `
-                -Server $domain.Name -ErrorAction Stop
+                -Server $domain.Name -ResultPageSize 500 -ErrorAction Stop
             
             # Get reachable DCs from inventory
             $reachableDCs = $Inventory.DomainControllers | 
@@ -74,7 +74,7 @@ try {
             # Check for orphaned NTDS Settings objects
             $ntdsSettings = Get-ADObject -Filter {objectClass -eq 'nTDSDSA'} `
                 -SearchBase "CN=Sites,CN=Configuration,$((Get-ADDomain -Server $domain.Name).DistinguishedName)" `
-                -Server $domain.Name -ErrorAction Stop
+                -Server $domain.Name -ResultPageSize 500 -ErrorAction Stop
             
             $orphanedNTDS = @()
             

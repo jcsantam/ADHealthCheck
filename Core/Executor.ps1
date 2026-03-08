@@ -56,7 +56,6 @@ function Invoke-CheckExecution {
     # Import Active Directory module into each runspace
     $adModule = Get-Module -Name ActiveDirectory -ListAvailable | Select-Object -First 1
     if ($null -ne $adModule) {
-        $sessionState.ImportPSModule('ActiveDirectory')
         $sessionState.ImportPSModule('DnsServer')
         $sessionState.ImportPSModule('GroupPolicy')
     }
