@@ -63,7 +63,7 @@ function Export-EnhancedHtmlReport {
     # Group issues by severity - built from EvaluationStatus Fail/Warning results
     $allIssues = @($Results | Where-Object { $_.EvaluationStatus -ne 'Pass' } | ForEach-Object {
         $r = $_
-        $affected = if (@($r.AffectedObjects).Count -gt 0) { ($r.AffectedObjects -join ', ') } else { $r.CheckId }
+        $affected = if (@($r.AffectedObjects).Count -gt 0) { (($r.AffectedObjects | Select-Object -Unique) -join ', ') } else { $r.CheckId }
         [PSCustomObject]@{
             Severity       = (Get-Culture).TextInfo.ToTitleCase($r.Severity.ToLower())
             Title          = $r.Message
