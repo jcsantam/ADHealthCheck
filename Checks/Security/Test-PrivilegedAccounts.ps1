@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     AdminSDHolder and Privileged Groups Check (SEC-002)
 
@@ -32,6 +32,7 @@ param(
 )
 
 $ErrorActionPreference = 'Continue'
+Import-Module ActiveDirectory -ErrorAction SilentlyContinue
 $results = @()
 
 # Privileged groups to monitor
@@ -64,7 +65,13 @@ try {
             foreach ($groupName in $privilegedGroups) {
                 try {
                     # Get group
-                    $group = Get-ADGroup -Filter "Name -eq '$groupName'" -Server $domain.Name -ErrorAction SilentlyContinue
+                    $group = $null
+                    try {
+                        $group = Get-ADGroup -Identity $groupName -ErrorAction Stop
+                    } catch {
+                        Write-Warning "[SEC-002] Failed to get group '$groupName': $_"
+                        continue
+                    }
                     
                     if (-not $group) {
                         Write-Verbose "[SEC-002] Group '$groupName' not found in $($domain.Name)"
@@ -72,7 +79,9 @@ try {
                     }
                     
                     # Get group members
-                    $members = Get-ADGroupMember -Identity $group -Server $domain.Name -ErrorAction Stop
+                    $members = @(Get-ADGroupMember -Identity $group.DistinguishedName -ErrorAction SilentlyContinue)
+                    if ($null -eq $members) { $members = @() }
+                    if ($null -eq $members) { $members = @() }
                     
                     Write-Verbose "[SEC-002] Group '$groupName' has $($members.Count) members"
                     
@@ -162,7 +171,7 @@ try {
                 $adminSDHolder = Get-ADObject -Filter "Name -eq 'AdminSDHolder'" `
                     -SearchBase "CN=System,$((Get-ADDomain -Server $domain.Name).DistinguishedName)" `
                     -Properties nTSecurityDescriptor, whenChanged `
-                    -Server $domain.Name -ErrorAction Stop
+                    -Server $domain.Name -ResultPageSize 500 -ErrorAction Stop
                 
                 if ($adminSDHolder) {
                     $daysSinceUpdate = ((Get-Date) - $adminSDHolder.whenChanged).Days
