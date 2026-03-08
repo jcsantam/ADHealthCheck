@@ -1,0 +1,138 @@
+{
+  "Category": "Database",
+  "Description": "NTDS database health and integrity checks",
+  "Version": "2.0",
+  "Checks": [
+    {
+      "CheckId": "DB-001",
+      "CheckName": "NTDS Database Health",
+      "Category": "Database",
+      "Severity": "Critical",
+      "CriticalThreshold": 10,
+      "ScriptPath": "Test-NTDSHealth.ps1",
+      "PassMessage": "NTDS database is healthy on all DCs",
+      "FailMessage": "NTDS database health issue detected",
+      "EvaluationRules": [
+        {
+          "RuleId": "DB-001-STATE",
+          "Condition": "DatabaseState != 'Clean Shutdown'",
+          "Status": "Fail",
+          "Severity": "critical",
+          "Message": "NTDS database state indicates improper shutdown or corruption"
+        },
+        {
+          "RuleId": "DB-001-SPACE",
+          "Condition": "FreeSpaceGB < CriticalThreshold",
+          "Status": "Fail",
+          "Severity": "high",
+          "Message": "Insufficient free disk space for database growth"
+        },
+        {
+          "RuleId": "DB-001-ESE",
+          "Condition": "ESEErrorCount > 0",
+          "Status": "Warning",
+          "Severity": "medium",
+          "Message": "ESE database errors detected in Application event log"
+        },
+        {
+          "RuleId": "DB-001-HASISSUE",
+          "Condition": "HasIssue == true",
+          "Status": "Fail",
+          "Severity": "high",
+          "Message": "NTDS database health issue detected"
+        },
+        {
+          "RuleId": "DB-001-ISUNHEALTHY",
+          "Condition": "IsHealthy == false",
+          "Status": "Fail",
+          "Severity": "high",
+          "Message": "NTDS database health check reported failure"
+        }
+      ],
+      "IsEnabled": true,
+      "Version": "2.0"
+    },
+    {
+      "CheckId": "DB-002",
+      "CheckName": "Database Fragmentation",
+      "Category": "Database",
+      "Severity": "Medium",
+      "ScriptPath": "Test-DatabaseFragmentation.ps1",
+      "PassMessage": "NTDS database fragmentation is within acceptable limits",
+      "FailMessage": "NTDS database fragmentation detected - consider offline defrag",
+      "EvaluationRules": [
+        {
+          "RuleId": "DB-002-CRITICAL-FRAG",
+          "Condition": "Any(WhiteSpacePercent > 40)",
+          "Status": "Warning",
+          "Severity": "high",
+          "Message": "High database fragmentation - offline defragmentation recommended"
+        },
+        {
+          "RuleId": "DB-002-WARN-FRAG",
+          "Condition": "Any(WhiteSpacePercent > 20)",
+          "Status": "Warning",
+          "Severity": "medium",
+          "Message": "Moderate database fragmentation detected"
+        },
+        {
+          "RuleId": "DB-002-HASISSUE",
+          "Condition": "Any(HasIssue == true)",
+          "Status": "Warning",
+          "Severity": "medium",
+          "Message": "Database fragmentation issue detected"
+        }
+      ],
+      "IsEnabled": true,
+      "Version": "2.0"
+    },
+    {
+      "CheckId": "DB-003",
+      "CheckName": "Transaction Log Size",
+      "Category": "Database",
+      "Severity": "Medium",
+      "ScriptPath": "Test-TransactionLogSize.ps1",
+      "PassMessage": "Transaction log size is within normal limits on all DCs",
+      "FailMessage": "Transaction log accumulation detected",
+      "EvaluationRules": [
+        {
+          "RuleId": "DB-003-CRITICAL-COUNT",
+          "Condition": "Any(LogCount > 1000)",
+          "Status": "Fail",
+          "Severity": "critical",
+          "Message": "Critical number of transaction logs accumulating - replication or backup issue"
+        },
+        {
+          "RuleId": "DB-003-CRITICAL-SIZE",
+          "Condition": "Any(TotalLogSizeGB > 10)",
+          "Status": "Fail",
+          "Severity": "critical",
+          "Message": "Transaction logs consuming excessive disk space"
+        },
+        {
+          "RuleId": "DB-003-WARN-COUNT",
+          "Condition": "Any(LogCount > 100)",
+          "Status": "Warning",
+          "Severity": "high",
+          "Message": "Elevated number of transaction logs accumulating"
+        },
+        {
+          "RuleId": "DB-003-WARN-SIZE",
+          "Condition": "Any(TotalLogSizeGB > 5)",
+          "Status": "Warning",
+          "Severity": "medium",
+          "Message": "Transaction logs consuming significant disk space"
+        },
+        {
+          "RuleId": "DB-003-HASISSUE",
+          "Condition": "Any(HasIssue == true)",
+          "Status": "Warning",
+          "Severity": "medium",
+          "Message": "Transaction log issue detected"
+        }
+      ],
+      "IsEnabled": true,
+      "Version": "2.0"
+    }
+  ]
+}

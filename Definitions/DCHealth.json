@@ -1,0 +1,343 @@
+{
+  "Category": "DCHealth",
+  "Description": "Domain Controller health and performance checks",
+  "Version": "2.0",
+  "Checks": [
+    {
+      "CheckId": "DC-001",
+      "CheckName": "Critical Services Status",
+      "Category": "DCHealth",
+      "Severity": "Critical",
+      "ScriptPath": "Test-CriticalServices.ps1",
+      "PassMessage": "All critical AD services are running on all DCs",
+      "FailMessage": "Critical AD services are not running",
+      "EvaluationRules": [
+        {
+          "RuleId": "DC-001-STOPPED",
+          "Condition": "Any(ServiceStatus == 'Stopped')",
+          "Status": "Fail",
+          "Severity": "critical",
+          "Message": "Critical AD service is stopped on a domain controller"
+        },
+        {
+          "RuleId": "DC-001-HASISSUE",
+          "Condition": "Any(HasIssue == true)",
+          "Status": "Fail",
+          "Severity": "critical",
+          "Message": "Critical service issue detected on domain controller"
+        }
+      ],
+      "IsEnabled": true,
+      "Version": "2.0"
+    },
+    {
+      "CheckId": "DC-002",
+      "CheckName": "Disk Space",
+      "Category": "DCHealth",
+      "Severity": "High",
+      "CriticalThreshold": 10,
+      "WarningThreshold": 20,
+      "ScriptPath": "Test-DiskSpace.ps1",
+      "PassMessage": "Disk space is adequate on all domain controllers",
+      "FailMessage": "Low disk space detected on domain controller",
+      "EvaluationRules": [
+        {
+          "RuleId": "DC-002-CRITICAL-SPACE",
+          "Condition": "Any(FreeSpacePct < 10)",
+          "Status": "Fail",
+          "Severity": "critical",
+          "Message": "Critical disk space shortage on domain controller"
+        },
+        {
+          "RuleId": "DC-002-WARN-SPACE",
+          "Condition": "Any(FreeSpacePct < 20)",
+          "Status": "Warning",
+          "Severity": "high",
+          "Message": "Low disk space on domain controller"
+        },
+        {
+          "RuleId": "DC-002-HASISSUE",
+          "Condition": "Any(HasIssue == true)",
+          "Status": "Warning",
+          "Severity": "high",
+          "Message": "Disk space issue detected on domain controller"
+        }
+      ],
+      "IsEnabled": true,
+      "Version": "2.0"
+    },
+    {
+      "CheckId": "DC-003",
+      "CheckName": "DC Reachability",
+      "Category": "DCHealth",
+      "Severity": "Critical",
+      "ScriptPath": "Test-DCReachability.ps1",
+      "PassMessage": "All domain controllers are reachable",
+      "FailMessage": "One or more domain controllers are unreachable",
+      "EvaluationRules": [
+        {
+          "RuleId": "DC-003-UNREACHABLE",
+          "Condition": "Any(Reachable == false)",
+          "Status": "Fail",
+          "Severity": "critical",
+          "Message": "Domain controller is unreachable"
+        },
+        {
+          "RuleId": "DC-003-HASISSUE",
+          "Condition": "Any(HasIssue == true)",
+          "Status": "Fail",
+          "Severity": "critical",
+          "Message": "DC reachability issue detected"
+        }
+      ],
+      "IsEnabled": true,
+      "Version": "2.0"
+    },
+    {
+      "CheckId": "DC-004",
+      "CheckName": "CPU Utilization",
+      "Category": "DCHealth",
+      "Severity": "High",
+      "CriticalThreshold": 90,
+      "WarningThreshold": 75,
+      "ScriptPath": "Test-CPUUtilization.ps1",
+      "PassMessage": "CPU utilization is within normal limits on all DCs",
+      "FailMessage": "High CPU utilization detected on domain controller",
+      "EvaluationRules": [
+        {
+          "RuleId": "DC-004-CRITICAL-CPU",
+          "Condition": "Any(AverageCPU > 90)",
+          "Status": "Fail",
+          "Severity": "critical",
+          "Message": "Critical CPU utilization on domain controller - performance severely impacted"
+        },
+        {
+          "RuleId": "DC-004-WARN-CPU",
+          "Condition": "Any(AverageCPU > 75)",
+          "Status": "Warning",
+          "Severity": "high",
+          "Message": "High CPU utilization on domain controller"
+        },
+        {
+          "RuleId": "DC-004-HASISSUE",
+          "Condition": "Any(HasIssue == true)",
+          "Status": "Warning",
+          "Severity": "high",
+          "Message": "CPU utilization issue detected on domain controller"
+        }
+      ],
+      "IsEnabled": true,
+      "Version": "2.0"
+    },
+    {
+      "CheckId": "DC-005",
+      "CheckName": "Memory Pressure",
+      "Category": "DCHealth",
+      "Severity": "High",
+      "CriticalThreshold": 5,
+      "WarningThreshold": 15,
+      "ScriptPath": "Test-MemoryPressure.ps1",
+      "PassMessage": "Memory utilization is within normal limits on all DCs",
+      "FailMessage": "Memory pressure detected on domain controller",
+      "EvaluationRules": [
+        {
+          "RuleId": "DC-005-CRITICAL-MEM",
+          "Condition": "Any(FreeMemoryPercent < 5)",
+          "Status": "Fail",
+          "Severity": "critical",
+          "Message": "Critical memory pressure on domain controller"
+        },
+        {
+          "RuleId": "DC-005-WARN-MEM",
+          "Condition": "Any(FreeMemoryPercent < 15)",
+          "Status": "Warning",
+          "Severity": "high",
+          "Message": "Low available memory on domain controller"
+        },
+        {
+          "RuleId": "DC-005-HASISSUE",
+          "Condition": "Any(HasIssue == true)",
+          "Status": "Warning",
+          "Severity": "high",
+          "Message": "Memory pressure issue detected on domain controller"
+        }
+      ],
+      "IsEnabled": true,
+      "Version": "2.0"
+    },
+    {
+      "CheckId": "DC-006",
+      "CheckName": "Disk IO Latency",
+      "Category": "DCHealth",
+      "Severity": "High",
+      "CriticalThreshold": 50,
+      "WarningThreshold": 20,
+      "ScriptPath": "Test-DiskIOLatency.ps1",
+      "PassMessage": "Disk IO latency is within acceptable limits on all DCs",
+      "FailMessage": "High disk IO latency detected on domain controller",
+      "EvaluationRules": [
+        {
+          "RuleId": "DC-006-CRITICAL-IO",
+          "Condition": "Any(MaxLatencyMs > 50)",
+          "Status": "Fail",
+          "Severity": "critical",
+          "Message": "Critical disk IO latency on domain controller - AD operations severely impacted"
+        },
+        {
+          "RuleId": "DC-006-WARN-IO",
+          "Condition": "Any(MaxLatencyMs > 20)",
+          "Status": "Warning",
+          "Severity": "high",
+          "Message": "Elevated disk IO latency on domain controller"
+        },
+        {
+          "RuleId": "DC-006-HASISSUE",
+          "Condition": "Any(HasIssue == true)",
+          "Status": "Warning",
+          "Severity": "high",
+          "Message": "Disk IO latency issue detected"
+        }
+      ],
+      "IsEnabled": true,
+      "Version": "2.0"
+    },
+    {
+      "CheckId": "DC-007",
+      "CheckName": "LDAP Response Time",
+      "Category": "DCHealth",
+      "Severity": "High",
+      "CriticalThreshold": 5000,
+      "WarningThreshold": 1000,
+      "ScriptPath": "Test-LDAPResponse.ps1",
+      "PassMessage": "LDAP response times are within acceptable limits on all DCs",
+      "FailMessage": "Slow LDAP response time detected on domain controller",
+      "EvaluationRules": [
+        {
+          "RuleId": "DC-007-CRITICAL-LDAP",
+          "Condition": "Any(ResponseTimeMs > 5000)",
+          "Status": "Fail",
+          "Severity": "critical",
+          "Message": "Critical LDAP response time - authentication and directory queries severely degraded"
+        },
+        {
+          "RuleId": "DC-007-WARN-LDAP",
+          "Condition": "Any(ResponseTimeMs > 1000)",
+          "Status": "Warning",
+          "Severity": "high",
+          "Message": "Slow LDAP response time on domain controller"
+        },
+        {
+          "RuleId": "DC-007-HASISSUE",
+          "Condition": "Any(HasIssue == true)",
+          "Status": "Warning",
+          "Severity": "high",
+          "Message": "LDAP response time issue detected"
+        }
+      ],
+      "IsEnabled": true,
+      "Version": "2.0"
+    },
+    {
+      "CheckId": "DC-008",
+      "CheckName": "Kerberos Functionality",
+      "Category": "DCHealth",
+      "Severity": "Critical",
+      "ScriptPath": "Test-KerberosFunctionality.ps1",
+      "PassMessage": "Kerberos KDC service is running normally on all DCs",
+      "FailMessage": "Kerberos functionality issue detected on domain controller",
+      "EvaluationRules": [
+        {
+          "RuleId": "DC-008-KDC-STOPPED",
+          "Condition": "Any(KDCServiceRunning == false)",
+          "Status": "Fail",
+          "Severity": "critical",
+          "Message": "KDC service is not running - Kerberos authentication will fail"
+        },
+        {
+          "RuleId": "DC-008-KDC-ERRORS",
+          "Condition": "Any(ErrorsLast24Hours > 10)",
+          "Status": "Warning",
+          "Severity": "high",
+          "Message": "Elevated Kerberos errors in the last 24 hours"
+        },
+        {
+          "RuleId": "DC-008-HASISSUE",
+          "Condition": "Any(HasIssue == true)",
+          "Status": "Fail",
+          "Severity": "critical",
+          "Message": "Kerberos functionality issue detected"
+        }
+      ],
+      "IsEnabled": true,
+      "Version": "2.0"
+    },
+    {
+      "CheckId": "DC-009",
+      "CheckName": "Global Catalog Availability",
+      "Category": "DCHealth",
+      "Severity": "High",
+      "ScriptPath": "Test-GlobalCatalog.ps1",
+      "PassMessage": "Global Catalog servers are responding normally",
+      "FailMessage": "Global Catalog issue detected",
+      "EvaluationRules": [
+        {
+          "RuleId": "DC-009-GC-NOT-RESPONDING",
+          "Condition": "Any(GCResponding == false)",
+          "Status": "Fail",
+          "Severity": "high",
+          "Message": "Global Catalog server is not responding on port 3268"
+        },
+        {
+          "RuleId": "DC-009-GC-NOT-ADVERTISING",
+          "Condition": "Any(GCAdvertising == false)",
+          "Status": "Warning",
+          "Severity": "medium",
+          "Message": "Global Catalog server is not advertising GC role"
+        },
+        {
+          "RuleId": "DC-009-HASISSUE",
+          "Condition": "Any(HasIssue == true)",
+          "Status": "Warning",
+          "Severity": "high",
+          "Message": "Global Catalog availability issue detected"
+        }
+      ],
+      "IsEnabled": true,
+      "Version": "2.0"
+    },
+    {
+      "CheckId": "DC-010",
+      "CheckName": "Certificate Expiration",
+      "Category": "DCHealth",
+      "Severity": "High",
+      "ScriptPath": "Test-CertificateExpiration.ps1",
+      "PassMessage": "No certificates expiring soon on domain controllers",
+      "FailMessage": "Certificates expiring soon detected on domain controllers",
+      "EvaluationRules": [
+        {
+          "RuleId": "DC-010-CRITICAL-CERT",
+          "Condition": "Any(CriticalCertificates > 0)",
+          "Status": "Fail",
+          "Severity": "critical",
+          "Message": "Domain controller certificates expiring within 30 days"
+        },
+        {
+          "RuleId": "DC-010-WARN-CERT",
+          "Condition": "Any(ExpiringCertificates > 0)",
+          "Status": "Warning",
+          "Severity": "high",
+          "Message": "Domain controller certificates expiring within 90 days"
+        },
+        {
+          "RuleId": "DC-010-HASISSUE",
+          "Condition": "Any(HasIssue == true)",
+          "Status": "Warning",
+          "Severity": "high",
+          "Message": "Certificate expiration issue detected"
+        }
+      ],
+      "IsEnabled": true,
+      "Version": "2.0"
+    }
+  ]
+}

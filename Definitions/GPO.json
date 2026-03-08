@@ -1,0 +1,150 @@
+{
+  "Category": "GPO",
+  "Description": "Group Policy Object health and consistency checks",
+  "Version": "2.0",
+  "Checks": [
+    {
+      "CheckId": "GPO-001",
+      "CheckName": "Orphaned GPO Detection",
+      "Category": "GPO",
+      "Severity": "High",
+      "ScriptPath": "Test-OrphanedGPOs.ps1",
+      "PassMessage": "No orphaned or inconsistent GPOs detected",
+      "FailMessage": "Orphaned or inconsistent GPOs detected",
+      "EvaluationRules": [
+        {
+          "RuleId": "GPO-001-MISSING-SYSVOL",
+          "Condition": "Any(OrphanType == 'Missing from SYSVOL')",
+          "Status": "Fail",
+          "Severity": "high",
+          "Message": "GPO exists in Active Directory but not in SYSVOL"
+        },
+        {
+          "RuleId": "GPO-001-MISSING-AD",
+          "Condition": "Any(OrphanType == 'Missing from AD')",
+          "Status": "Fail",
+          "Severity": "high",
+          "Message": "GPO folder exists in SYSVOL but not in Active Directory"
+        },
+        {
+          "RuleId": "GPO-001-VERSION-MISMATCH",
+          "Condition": "Any(OrphanType == 'Version Mismatch')",
+          "Status": "Warning",
+          "Severity": "medium",
+          "Message": "GPO version numbers differ between AD and SYSVOL"
+        },
+        {
+          "RuleId": "GPO-001-EMPTY-UNLINKED",
+          "Condition": "Any(OrphanType == 'Empty and Unlinked')",
+          "Status": "Warning",
+          "Severity": "low",
+          "Message": "Empty unlinked GPO detected - cleanup candidate"
+        },
+        {
+          "RuleId": "GPO-001-HASISSUE",
+          "Condition": "Any(HasIssue == true)",
+          "Status": "Fail",
+          "Severity": "high",
+          "Message": "GPO issue detected"
+        },
+        {
+          "RuleId": "GPO-001-ISUNHEALTHY",
+          "Condition": "IsHealthy == false",
+          "Status": "Fail",
+          "Severity": "high",
+          "Message": "GPO health check reported failure"
+        }
+      ],
+      "IsEnabled": true,
+      "Version": "2.0"
+    },
+    {
+      "CheckId": "GPO-002",
+      "CheckName": "GPO Replication Consistency",
+      "Category": "GPO",
+      "Severity": "High",
+      "ScriptPath": "Test-GPOReplication.ps1",
+      "PassMessage": "All GPO versions are consistent between AD and SYSVOL",
+      "FailMessage": "GPO replication inconsistencies detected",
+      "EvaluationRules": [
+        {
+          "RuleId": "GPO-002-USER-MISMATCH",
+          "Condition": "Any(UserMismatch == true)",
+          "Status": "Warning",
+          "Severity": "high",
+          "Message": "GPO user policy version mismatch between AD and SYSVOL"
+        },
+        {
+          "RuleId": "GPO-002-COMPUTER-MISMATCH",
+          "Condition": "Any(ComputerMismatch == true)",
+          "Status": "Warning",
+          "Severity": "high",
+          "Message": "GPO computer policy version mismatch between AD and SYSVOL"
+        },
+        {
+          "RuleId": "GPO-002-HASISSUE",
+          "Condition": "Any(HasIssue == true)",
+          "Status": "Warning",
+          "Severity": "high",
+          "Message": "GPO replication inconsistency detected"
+        }
+      ],
+      "IsEnabled": true,
+      "Version": "2.0"
+    },
+    {
+      "CheckId": "GPO-003",
+      "CheckName": "SYSVOL Consistency",
+      "Category": "GPO",
+      "Severity": "High",
+      "ScriptPath": "Test-SYSVOLConsistency.ps1",
+      "PassMessage": "SYSVOL GPO content is consistent across all DCs",
+      "FailMessage": "SYSVOL inconsistencies detected across domain controllers",
+      "EvaluationRules": [
+        {
+          "RuleId": "GPO-003-INCONSISTENT-DC",
+          "Condition": "Any(InconsistentDCs > 0)",
+          "Status": "Fail",
+          "Severity": "high",
+          "Message": "SYSVOL GPO content inconsistent across domain controllers"
+        },
+        {
+          "RuleId": "GPO-003-HASISSUE",
+          "Condition": "Any(HasIssue == true)",
+          "Status": "Fail",
+          "Severity": "high",
+          "Message": "SYSVOL consistency issue detected"
+        }
+      ],
+      "IsEnabled": true,
+      "Version": "2.0"
+    },
+    {
+      "CheckId": "GPO-004",
+      "CheckName": "GPO Permissions",
+      "Category": "GPO",
+      "Severity": "Medium",
+      "ScriptPath": "Test-GPOPermissions.ps1",
+      "PassMessage": "All GPO permissions are correctly configured",
+      "FailMessage": "GPO permission issues detected",
+      "EvaluationRules": [
+        {
+          "RuleId": "GPO-004-PERMISSION-ISSUES",
+          "Condition": "Any(GPOsWithIssues > 0)",
+          "Status": "Warning",
+          "Severity": "medium",
+          "Message": "One or more GPOs have permission configuration issues"
+        },
+        {
+          "RuleId": "GPO-004-HASISSUE",
+          "Condition": "Any(HasIssue == true)",
+          "Status": "Warning",
+          "Severity": "medium",
+          "Message": "GPO permission issue detected"
+        }
+      ],
+      "IsEnabled": true,
+      "Version": "2.0"
+    }
+  ]
+}

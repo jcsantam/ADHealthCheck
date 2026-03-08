@@ -1,0 +1,190 @@
+{
+  "Category": "DNS",
+  "Description": "DNS health and configuration checks",
+  "Version": "2.0",
+  "Checks": [
+    {
+      "CheckId": "DNS-001",
+      "CheckName": "Critical SRV Records",
+      "Category": "DNS",
+      "Severity": "Critical",
+      "ScriptPath": "Test-CriticalSRVRecords.ps1",
+      "PassMessage": "All critical AD SRV records are present and valid",
+      "FailMessage": "Critical AD SRV records are missing",
+      "EvaluationRules": [
+        {
+          "RuleId": "DNS-001-MISSING-SRV",
+          "Condition": "Any(Exists == false)",
+          "Status": "Fail",
+          "Severity": "critical",
+          "Message": "Critical AD SRV record is missing - clients cannot locate AD services"
+        },
+        {
+          "RuleId": "DNS-001-HASISSUE",
+          "Condition": "Any(HasIssue == true)",
+          "Status": "Fail",
+          "Severity": "critical",
+          "Message": "Critical SRV record issue detected"
+        }
+      ],
+      "IsEnabled": true,
+      "Version": "2.0"
+    },
+    {
+      "CheckId": "DNS-002",
+      "CheckName": "DNS Zone Health",
+      "Category": "DNS",
+      "Severity": "High",
+      "ScriptPath": "Test-DNSZoneHealth.ps1",
+      "PassMessage": "All DNS zones are healthy",
+      "FailMessage": "DNS zone health issues detected",
+      "EvaluationRules": [
+        {
+          "RuleId": "DNS-002-ZONE-ISSUE",
+          "Condition": "Any(HasIssue == true)",
+          "Status": "Fail",
+          "Severity": "high",
+          "Message": "DNS zone issue detected"
+        },
+        {
+          "RuleId": "DNS-002-ISUNHEALTHY",
+          "Condition": "IsHealthy == false",
+          "Status": "Fail",
+          "Severity": "high",
+          "Message": "DNS zone health check reported failure"
+        }
+      ],
+      "IsEnabled": true,
+      "Version": "2.0"
+    },
+    {
+      "CheckId": "DNS-003",
+      "CheckName": "DNS Forwarders",
+      "Category": "DNS",
+      "Severity": "Medium",
+      "ScriptPath": "Test-DNSForwarders.ps1",
+      "PassMessage": "DNS forwarders are configured and reachable",
+      "FailMessage": "DNS forwarder issues detected",
+      "EvaluationRules": [
+        {
+          "RuleId": "DNS-003-NO-FORWARDERS",
+          "Condition": "Any(ForwardersConfigured == false)",
+          "Status": "Warning",
+          "Severity": "low",
+          "Message": "No DNS forwarders configured - using root hints only"
+        },
+        {
+          "RuleId": "DNS-003-UNREACHABLE",
+          "Condition": "Any(AllForwardersReachable == false)",
+          "Status": "Warning",
+          "Severity": "medium",
+          "Message": "One or more DNS forwarders are unreachable"
+        },
+        {
+          "RuleId": "DNS-003-HASISSUE",
+          "Condition": "Any(HasIssue == true)",
+          "Status": "Warning",
+          "Severity": "medium",
+          "Message": "DNS forwarder issue detected"
+        }
+      ],
+      "IsEnabled": true,
+      "Version": "2.0"
+    },
+    {
+      "CheckId": "DNS-004",
+      "CheckName": "Root Hints Configuration",
+      "Category": "DNS",
+      "Severity": "Medium",
+      "ScriptPath": "Test-RootHints.ps1",
+      "PassMessage": "DNS root hints are properly configured",
+      "FailMessage": "DNS root hints configuration issues detected",
+      "EvaluationRules": [
+        {
+          "RuleId": "DNS-004-NO-ROOTS",
+          "Condition": "Any(RootHintsConfigured == false)",
+          "Status": "Fail",
+          "Severity": "high",
+          "Message": "No root hints configured - external DNS resolution will fail"
+        },
+        {
+          "RuleId": "DNS-004-MISSING-SERVERS",
+          "Condition": "Any(StandardServersPresent < 5)",
+          "Status": "Warning",
+          "Severity": "medium",
+          "Message": "Some standard root hint servers are missing"
+        },
+        {
+          "RuleId": "DNS-004-HASISSUE",
+          "Condition": "Any(HasIssue == true)",
+          "Status": "Warning",
+          "Severity": "medium",
+          "Message": "Root hints configuration issue detected"
+        }
+      ],
+      "IsEnabled": true,
+      "Version": "2.0"
+    },
+    {
+      "CheckId": "DNS-005",
+      "CheckName": "DNS Scavenging Configuration",
+      "Category": "DNS",
+      "Severity": "Medium",
+      "ScriptPath": "Test-ScavengingConfiguration.ps1",
+      "PassMessage": "DNS scavenging is properly configured",
+      "FailMessage": "DNS scavenging configuration issues detected",
+      "EvaluationRules": [
+        {
+          "RuleId": "DNS-005-SCAVENGING-DISABLED",
+          "Condition": "Any(ScavengingEnabled == false)",
+          "Status": "Warning",
+          "Severity": "medium",
+          "Message": "DNS scavenging is not enabled - stale DNS records will accumulate"
+        },
+        {
+          "RuleId": "DNS-005-WARNINGS",
+          "Condition": "Any(WarningsFound > 0)",
+          "Status": "Warning",
+          "Severity": "low",
+          "Message": "DNS scavenging configuration warnings found"
+        },
+        {
+          "RuleId": "DNS-005-HASISSUE",
+          "Condition": "Any(HasIssue == true)",
+          "Status": "Warning",
+          "Severity": "medium",
+          "Message": "DNS scavenging configuration issue detected"
+        }
+      ],
+      "IsEnabled": true,
+      "Version": "2.0"
+    },
+    {
+      "CheckId": "DNS-006",
+      "CheckName": "Zone Transfer Settings",
+      "Category": "DNS",
+      "Severity": "High",
+      "ScriptPath": "Test-ZoneTransferSettings.ps1",
+      "PassMessage": "DNS zone transfer settings are secure",
+      "FailMessage": "Insecure DNS zone transfer settings detected",
+      "EvaluationRules": [
+        {
+          "RuleId": "DNS-006-INSECURE-ZONES",
+          "Condition": "Any(InsecureZones > 0)",
+          "Status": "Fail",
+          "Severity": "high",
+          "Message": "DNS zones allow unrestricted zone transfers - security risk"
+        },
+        {
+          "RuleId": "DNS-006-HASISSUE",
+          "Condition": "Any(HasIssue == true)",
+          "Status": "Fail",
+          "Severity": "high",
+          "Message": "DNS zone transfer security issue detected"
+        }
+      ],
+      "IsEnabled": true,
+      "Version": "2.0"
+    }
+  ]
+}

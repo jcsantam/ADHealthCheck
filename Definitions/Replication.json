@@ -1,0 +1,316 @@
+{
+  "Category": "Replication",
+  "Description": "Active Directory replication health checks",
+  "Version": "2.0",
+  "Checks": [
+    {
+      "CheckId": "REP-001",
+      "CheckName": "Replication Status",
+      "Category": "Replication",
+      "Severity": "Critical",
+      "ScriptPath": "Test-ReplicationStatus.ps1",
+      "PassMessage": "AD replication is healthy across all domain controllers",
+      "FailMessage": "AD replication failures detected",
+      "EvaluationRules": [
+        {
+          "RuleId": "REP-001-FAILED",
+          "Condition": "Any(LastSyncResult != 0)",
+          "Status": "Fail",
+          "Severity": "critical",
+          "Message": "AD replication failure detected between domain controllers"
+        },
+        {
+          "RuleId": "REP-001-HASISSUE",
+          "Condition": "Any(HasIssue == true)",
+          "Status": "Fail",
+          "Severity": "critical",
+          "Message": "Replication status issue detected"
+        }
+      ],
+      "IsEnabled": true,
+      "Version": "2.0"
+    },
+    {
+      "CheckId": "REP-002",
+      "CheckName": "Replication Errors",
+      "Category": "Replication",
+      "Severity": "Critical",
+      "ScriptPath": "Test-ReplicationErrors.ps1",
+      "PassMessage": "No replication errors detected in event logs",
+      "FailMessage": "Replication errors detected in event logs",
+      "EvaluationRules": [
+        {
+          "RuleId": "REP-002-ERRORS",
+          "Condition": "Any(ErrorCount > 0)",
+          "Status": "Fail",
+          "Severity": "critical",
+          "Message": "Active Directory replication errors found in event logs"
+        },
+        {
+          "RuleId": "REP-002-HASISSUE",
+          "Condition": "Any(HasIssue == true)",
+          "Status": "Fail",
+          "Severity": "critical",
+          "Message": "Replication error issue detected"
+        }
+      ],
+      "IsEnabled": true,
+      "Version": "2.0"
+    },
+    {
+      "CheckId": "REP-003",
+      "CheckName": "USN Rollback Detection",
+      "Category": "Replication",
+      "Severity": "Critical",
+      "ScriptPath": "Test-USNRollback.ps1",
+      "PassMessage": "No USN rollback detected on any domain controller",
+      "FailMessage": "USN rollback detected - immediate action required",
+      "EvaluationRules": [
+        {
+          "RuleId": "REP-003-USN-ROLLBACK",
+          "Condition": "Any(USNRollbackDetected == true)",
+          "Status": "Fail",
+          "Severity": "critical",
+          "Message": "USN rollback detected - replication is broken and data loss may have occurred"
+        },
+        {
+          "RuleId": "REP-003-HASISSUE",
+          "Condition": "Any(HasIssue == true)",
+          "Status": "Fail",
+          "Severity": "critical",
+          "Message": "USN rollback issue detected"
+        }
+      ],
+      "IsEnabled": true,
+      "Version": "2.0"
+    },
+    {
+      "CheckId": "REP-004",
+      "CheckName": "Replication Latency",
+      "Category": "Replication",
+      "Severity": "High",
+      "CriticalThreshold": 3600,
+      "WarningThreshold": 900,
+      "ScriptPath": "Test-ReplicationLatency.ps1",
+      "PassMessage": "Replication latency is within acceptable limits",
+      "FailMessage": "High replication latency detected",
+      "EvaluationRules": [
+        {
+          "RuleId": "REP-004-HASISSUE",
+          "Condition": "Any(HasIssue == true)",
+          "Status": "Fail",
+          "Severity": "high",
+          "Message": "Replication latency issue detected"
+        },
+        {
+          "RuleId": "REP-004-ISUNHEALTHY",
+          "Condition": "IsHealthy == false",
+          "Status": "Fail",
+          "Severity": "high",
+          "Message": "Replication latency check reported failure"
+        }
+      ],
+      "IsEnabled": true,
+      "Version": "2.0"
+    },
+    {
+      "CheckId": "REP-005",
+      "CheckName": "SYSVOL Replication",
+      "Category": "Replication",
+      "Severity": "Critical",
+      "ScriptPath": "Test-SYSVOLReplication.ps1",
+      "PassMessage": "SYSVOL replication is healthy across all DCs",
+      "FailMessage": "SYSVOL replication issues detected",
+      "EvaluationRules": [
+        {
+          "RuleId": "REP-005-NOT-IN-SYNC",
+          "Condition": "Any(InSync == false)",
+          "Status": "Fail",
+          "Severity": "critical",
+          "Message": "SYSVOL is not in sync across domain controllers"
+        },
+        {
+          "RuleId": "REP-005-ERRORS",
+          "Condition": "Any(HasErrors == true)",
+          "Status": "Fail",
+          "Severity": "critical",
+          "Message": "SYSVOL replication errors detected"
+        },
+        {
+          "RuleId": "REP-005-BACKLOG",
+          "Condition": "Any(BacklogCount > 100)",
+          "Status": "Warning",
+          "Severity": "high",
+          "Message": "SYSVOL replication backlog is high"
+        },
+        {
+          "RuleId": "REP-005-HASISSUE",
+          "Condition": "Any(HasIssue == true)",
+          "Status": "Fail",
+          "Severity": "critical",
+          "Message": "SYSVOL replication issue detected"
+        }
+      ],
+      "IsEnabled": true,
+      "Version": "2.0"
+    },
+    {
+      "CheckId": "REP-006",
+      "CheckName": "Replication Queue",
+      "Category": "Replication",
+      "Severity": "High",
+      "CriticalThreshold": 100,
+      "WarningThreshold": 25,
+      "ScriptPath": "Test-ReplicationQueue.ps1",
+      "PassMessage": "Replication queues are within normal limits",
+      "FailMessage": "Replication queue backlog detected",
+      "EvaluationRules": [
+        {
+          "RuleId": "REP-006-CRITICAL-QUEUE",
+          "Condition": "Any(MaxQueue > 100)",
+          "Status": "Fail",
+          "Severity": "critical",
+          "Message": "Critical replication queue backlog - objects not replicating"
+        },
+        {
+          "RuleId": "REP-006-WARN-QUEUE",
+          "Condition": "Any(MaxQueue > 25)",
+          "Status": "Warning",
+          "Severity": "high",
+          "Message": "Elevated replication queue depth detected"
+        },
+        {
+          "RuleId": "REP-006-HASISSUE",
+          "Condition": "Any(HasIssue == true)",
+          "Status": "Warning",
+          "Severity": "high",
+          "Message": "Replication queue issue detected"
+        }
+      ],
+      "IsEnabled": true,
+      "Version": "2.0"
+    },
+    {
+      "CheckId": "REP-007",
+      "CheckName": "Failed Replications",
+      "Category": "Replication",
+      "Severity": "Critical",
+      "ScriptPath": "Test-FailedReplications.ps1",
+      "PassMessage": "No failed replications detected in event logs",
+      "FailMessage": "Failed replication events detected",
+      "EvaluationRules": [
+        {
+          "RuleId": "REP-007-FAILURES",
+          "Condition": "Any(FailureCount > 0)",
+          "Status": "Fail",
+          "Severity": "critical",
+          "Message": "Replication failure events found in event logs"
+        },
+        {
+          "RuleId": "REP-007-HASISSUE",
+          "Condition": "Any(HasIssue == true)",
+          "Status": "Fail",
+          "Severity": "critical",
+          "Message": "Failed replication issue detected"
+        }
+      ],
+      "IsEnabled": true,
+      "Version": "2.0"
+    },
+    {
+      "CheckId": "REP-008",
+      "CheckName": "Metadata Consistency",
+      "Category": "Replication",
+      "Severity": "High",
+      "ScriptPath": "Test-MetadataConsistency.ps1",
+      "PassMessage": "AD replication metadata is consistent across all DCs",
+      "FailMessage": "AD metadata inconsistencies detected",
+      "EvaluationRules": [
+        {
+          "RuleId": "REP-008-PHANTOM-DCS",
+          "Condition": "Any(PhantomDCs > 0)",
+          "Status": "Fail",
+          "Severity": "high",
+          "Message": "Phantom DC objects detected in AD metadata - orphaned server objects"
+        },
+        {
+          "RuleId": "REP-008-HASISSUE",
+          "Condition": "Any(HasIssue == true)",
+          "Status": "Fail",
+          "Severity": "high",
+          "Message": "Metadata consistency issue detected"
+        }
+      ],
+      "IsEnabled": true,
+      "Version": "2.0"
+    },
+    {
+      "CheckId": "REP-009",
+      "CheckName": "Lingering Objects",
+      "Category": "Replication",
+      "Severity": "High",
+      "ScriptPath": "Test-LingeringObjects.ps1",
+      "PassMessage": "No lingering objects detected",
+      "FailMessage": "Lingering objects detected - replication was interrupted",
+      "EvaluationRules": [
+        {
+          "RuleId": "REP-009-LINGERING",
+          "Condition": "Any(LingeringObjectCount > 0)",
+          "Status": "Fail",
+          "Severity": "high",
+          "Message": "Lingering objects detected - replication was interrupted beyond tombstone lifetime"
+        },
+        {
+          "RuleId": "REP-009-HASISSUE",
+          "Condition": "Any(HasIssue == true)",
+          "Status": "Fail",
+          "Severity": "high",
+          "Message": "Lingering objects issue detected"
+        }
+      ],
+      "IsEnabled": true,
+      "Version": "2.0"
+    },
+    {
+      "CheckId": "REP-010",
+      "CheckName": "Connection Objects",
+      "Category": "Replication",
+      "Severity": "Medium",
+      "ScriptPath": "Test-ConnectionObjects.ps1",
+      "PassMessage": "Replication connection objects are healthy",
+      "FailMessage": "Replication connection object issues detected",
+      "EvaluationRules": [
+        {
+          "RuleId": "REP-010-ORPHANED",
+          "Condition": "Any(OrphanedConnections > 5)",
+          "Status": "Fail",
+          "Severity": "high",
+          "Message": "Excessive orphaned replication connection objects detected"
+        },
+        {
+          "RuleId": "REP-010-DC-NO-CONN",
+          "Condition": "Any(DCsWithoutConnections > 1)",
+          "Status": "Fail",
+          "Severity": "high",
+          "Message": "Domain controllers found with no replication connections"
+        },
+        {
+          "RuleId": "REP-010-DISABLED",
+          "Condition": "Any(DisabledConnections > 0)",
+          "Status": "Warning",
+          "Severity": "medium",
+          "Message": "Disabled replication connection objects found"
+        },
+        {
+          "RuleId": "REP-010-HASISSUE",
+          "Condition": "Any(HasIssue == true)",
+          "Status": "Warning",
+          "Severity": "medium",
+          "Message": "Connection object issue detected"
+        }
+      ],
+      "IsEnabled": true,
+      "Version": "2.0"
+    }
+  ]
+}

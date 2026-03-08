@@ -1,0 +1,67 @@
+{
+  "Version": "1.1.0-beta1",
+  "Description": "AD Health Check configuration - calibrated for Beta 1.1",
+
+  "Scoring": {
+    "BaseScore": 100,
+    "MaxPenalty": 100,
+    "SeverityWeights": {
+      "critical": 15,
+      "high": 7,
+      "medium": 3,
+      "low": 1,
+      "informational": 0
+    },
+    "GradeThresholds": {
+      "A": 90,
+      "B": 80,
+      "C": 70,
+      "D": 60,
+      "F": 0
+    },
+    "Comments": [
+      "Beta 1.1 calibration rationale:",
+      "5 Critical issues = 75 penalty points -> Score ~25 (F grade). Was 10pts each = 50pts = Score 50.",
+      "3 Medium issues  = 9 penalty points  -> Combined with 5 criticals: Score ~16",
+      "This makes scores meaningful: a healthy AD gets 90+, a broken one gets <50"
+    ]
+  },
+
+  "Execution": {
+    "MaxParallelJobs": 10,
+    "DefaultTimeoutSeconds": 120,
+    "RetryFailedChecks": false,
+    "MaxRetries": 1
+  },
+
+  "Logging": {
+    "DefaultLevel": "Information",
+    "MaxLogAgeDays": 30,
+    "DatabaseVerbosity": "Verbose",
+    "Comments": [
+      "DatabaseVerbosity: Database stub warnings are now logged at Verbose level only.",
+      "This suppresses the 'Connection is null' console noise from DatabaseOperations.ps1"
+    ]
+  },
+
+  "Reporting": {
+    "AutoOpenReport": true,
+    "ReportRetentionDays": 90,
+    "IncludeCategoryBreakdown": true,
+    "IncludeRawDetails": false
+  },
+
+  "Categories": {
+    "Enabled": [
+      "Replication",
+      "DCHealth",
+      "DNS",
+      "GPO",
+      "Time",
+      "Backup",
+      "Security",
+      "Database",
+      "Operational"
+    ]
+  }
+}

@@ -1,0 +1,170 @@
+{
+  "Category": "Operational",
+  "Description": "Active Directory operational health checks",
+  "Version": "2.0",
+  "Checks": [
+    {
+      "CheckId": "OPS-001",
+      "CheckName": "FSMO Role Placement",
+      "Category": "Operational",
+      "Severity": "High",
+      "ScriptPath": "Test-FSMORolePlacement.ps1",
+      "PassMessage": "FSMO roles are optimally placed",
+      "FailMessage": "FSMO role placement issues detected",
+      "EvaluationRules": [
+        {
+          "RuleId": "OPS-001-UNREACHABLE-HOLDER",
+          "Condition": "Any(IsReachable == false)",
+          "Status": "Fail",
+          "Severity": "critical",
+          "Message": "FSMO role holder is unreachable"
+        },
+        {
+          "RuleId": "OPS-001-HASISSUE",
+          "Condition": "Any(HasIssue == true)",
+          "Status": "Fail",
+          "Severity": "high",
+          "Message": "FSMO role placement issue detected"
+        }
+      ],
+      "IsEnabled": true,
+      "Version": "2.0"
+    },
+    {
+      "CheckId": "OPS-002",
+      "CheckName": "FSMO Role Availability",
+      "Category": "Operational",
+      "Severity": "Critical",
+      "ScriptPath": "Test-FSMOAvailability.ps1",
+      "PassMessage": "All FSMO roles are available and responding",
+      "FailMessage": "FSMO role availability issues detected",
+      "EvaluationRules": [
+        {
+          "RuleId": "OPS-002-ROLE-UNAVAILABLE",
+          "Condition": "Any(Available == false)",
+          "Status": "Fail",
+          "Severity": "critical",
+          "Message": "FSMO role is not available - AD operations may be impacted"
+        },
+        {
+          "RuleId": "OPS-002-LDAP-DOWN",
+          "Condition": "Any(LDAPResponding == false)",
+          "Status": "Fail",
+          "Severity": "critical",
+          "Message": "FSMO role holder is not responding to LDAP"
+        },
+        {
+          "RuleId": "OPS-002-HASISSUE",
+          "Condition": "Any(HasIssue == true)",
+          "Status": "Fail",
+          "Severity": "critical",
+          "Message": "FSMO availability issue detected"
+        }
+      ],
+      "IsEnabled": true,
+      "Version": "2.0"
+    },
+    {
+      "CheckId": "OPS-003",
+      "CheckName": "Trust Validation",
+      "Category": "Operational",
+      "Severity": "High",
+      "ScriptPath": "Test-TrustValidation.ps1",
+      "PassMessage": "All domain trusts are working correctly",
+      "FailMessage": "Domain trust issues detected",
+      "EvaluationRules": [
+        {
+          "RuleId": "OPS-003-TRUST-BROKEN",
+          "Condition": "Any(TrustWorking == false)",
+          "Status": "Fail",
+          "Severity": "high",
+          "Message": "Domain trust relationship is broken or not responding"
+        },
+        {
+          "RuleId": "OPS-003-HASISSUE",
+          "Condition": "Any(HasIssue == true)",
+          "Status": "Fail",
+          "Severity": "high",
+          "Message": "Trust validation issue detected"
+        }
+      ],
+      "IsEnabled": true,
+      "Version": "2.0"
+    },
+    {
+      "CheckId": "OPS-004",
+      "CheckName": "SID Filtering",
+      "Category": "Operational",
+      "Severity": "High",
+      "ScriptPath": "Test-SIDFiltering.ps1",
+      "PassMessage": "SID filtering is appropriately configured on all trusts",
+      "FailMessage": "SID filtering configuration issues detected",
+      "EvaluationRules": [
+        {
+          "RuleId": "OPS-004-INAPPROPRIATE",
+          "Condition": "Any(IsAppropriate == false)",
+          "Status": "Fail",
+          "Severity": "high",
+          "Message": "SID filtering is not appropriately configured for trust type"
+        },
+        {
+          "RuleId": "OPS-004-HASISSUE",
+          "Condition": "Any(HasIssue == true)",
+          "Status": "Fail",
+          "Severity": "high",
+          "Message": "SID filtering issue detected"
+        }
+      ],
+      "IsEnabled": true,
+      "Version": "2.0"
+    },
+    {
+      "CheckId": "OPS-005",
+      "CheckName": "Site Topology",
+      "Category": "Operational",
+      "Severity": "Medium",
+      "ScriptPath": "Test-SiteTopology.ps1",
+      "PassMessage": "AD site topology is properly configured",
+      "FailMessage": "AD site topology issues detected",
+      "EvaluationRules": [
+        {
+          "RuleId": "OPS-005-ORPHANED-SITES",
+          "Condition": "Any(SitesWithoutDCs > 0)",
+          "Status": "Warning",
+          "Severity": "low",
+          "Message": "AD sites exist with no domain controllers assigned"
+        },
+        {
+          "RuleId": "OPS-005-NO-SUBNETS",
+          "Condition": "Any(SitesWithoutSubnets > 0)",
+          "Status": "Warning",
+          "Severity": "medium",
+          "Message": "AD sites exist with no subnets defined"
+        },
+        {
+          "RuleId": "OPS-005-UNASSIGNED-SUBNETS",
+          "Condition": "Any(UnassignedSubnets > 0)",
+          "Status": "Warning",
+          "Severity": "medium",
+          "Message": "Subnets exist that are not assigned to any AD site"
+        },
+        {
+          "RuleId": "OPS-005-SITELINK-ISSUES",
+          "Condition": "Any(SiteLinkIssues > 0)",
+          "Status": "Warning",
+          "Severity": "medium",
+          "Message": "Site link configuration issues detected"
+        },
+        {
+          "RuleId": "OPS-005-HASISSUE",
+          "Condition": "Any(HasIssue == true)",
+          "Status": "Warning",
+          "Severity": "medium",
+          "Message": "Site topology issue detected"
+        }
+      ],
+      "IsEnabled": true,
+      "Version": "2.0"
+    }
+  ]
+}

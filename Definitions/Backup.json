@@ -1,0 +1,118 @@
+{
+  "Category": "Backup",
+  "Description": "Backup validation and disaster recovery checks",
+  "Version": "2.0",
+  "Checks": [
+    {
+      "CheckId": "BACKUP-001",
+      "CheckName": "System State Backup Age",
+      "Category": "Backup",
+      "Severity": "Critical",
+      "CriticalThreshold": 75,
+      "WarningThreshold": 50,
+      "ScriptPath": "Test-BackupAge.ps1",
+      "PassMessage": "System state backups are current on all DCs",
+      "FailMessage": "System state backup age issues detected",
+      "EvaluationRules": [
+        {
+          "RuleId": "BACKUP-001-CRITICAL-AGE",
+          "Condition": "Any(BackupAgeDays > CriticalThreshold)",
+          "Status": "Fail",
+          "Severity": "critical",
+          "Message": "System state backup age exceeds safe restore threshold"
+        },
+        {
+          "RuleId": "BACKUP-001-WARN-AGE",
+          "Condition": "Any(BackupAgeDays > WarningThreshold)",
+          "Status": "Warning",
+          "Severity": "high",
+          "Message": "System state backup age approaching tombstone limit"
+        },
+        {
+          "RuleId": "BACKUP-001-NO-BACKUP",
+          "Condition": "Any(LastBackupDate == null)",
+          "Status": "Fail",
+          "Severity": "critical",
+          "Message": "No system state backup found on domain controller"
+        },
+        {
+          "RuleId": "BACKUP-001-HASISSUE",
+          "Condition": "Any(HasIssue == true)",
+          "Status": "Fail",
+          "Severity": "critical",
+          "Message": "Backup age issue detected on domain controller"
+        },
+        {
+          "RuleId": "BACKUP-001-ISUNHEALTHY",
+          "Condition": "IsHealthy == false",
+          "Status": "Fail",
+          "Severity": "critical",
+          "Message": "Backup age check reported failure"
+        }
+      ],
+      "IsEnabled": true,
+      "Version": "2.0"
+    },
+    {
+      "CheckId": "BACKUP-002",
+      "CheckName": "AD Recycle Bin Status",
+      "Category": "Backup",
+      "Severity": "Medium",
+      "ScriptPath": "Test-RecycleBinStatus.ps1",
+      "PassMessage": "AD Recycle Bin is enabled - deleted objects can be recovered",
+      "FailMessage": "AD Recycle Bin is not enabled",
+      "EvaluationRules": [
+        {
+          "RuleId": "BACKUP-002-DISABLED",
+          "Condition": "Any(RecycleBinEnabled == false)",
+          "Status": "Warning",
+          "Severity": "medium",
+          "Message": "AD Recycle Bin not enabled - deleted objects cannot be easily recovered"
+        },
+        {
+          "RuleId": "BACKUP-002-HASISSUE",
+          "Condition": "Any(HasIssue == true)",
+          "Status": "Warning",
+          "Severity": "medium",
+          "Message": "AD Recycle Bin issue detected"
+        }
+      ],
+      "IsEnabled": true,
+      "Version": "2.0"
+    },
+    {
+      "CheckId": "BACKUP-003",
+      "CheckName": "VSS Writer Health",
+      "Category": "Backup",
+      "Severity": "High",
+      "ScriptPath": "Test-VSSWriterHealth.ps1",
+      "PassMessage": "All VSS writers are stable on all DCs",
+      "FailMessage": "VSS writer failures detected - backups may fail",
+      "EvaluationRules": [
+        {
+          "RuleId": "BACKUP-003-CRITICAL-FAILED",
+          "Condition": "Any(FailedWriters > 3)",
+          "Status": "Fail",
+          "Severity": "critical",
+          "Message": "Multiple VSS writers failed - AD backups will likely fail"
+        },
+        {
+          "RuleId": "BACKUP-003-WARN-FAILED",
+          "Condition": "Any(FailedWriters > 0)",
+          "Status": "Warning",
+          "Severity": "high",
+          "Message": "One or more VSS writers not in stable state"
+        },
+        {
+          "RuleId": "BACKUP-003-HASISSUE",
+          "Condition": "Any(HasIssue == true)",
+          "Status": "Warning",
+          "Severity": "high",
+          "Message": "VSS writer health issue detected"
+        }
+      ],
+      "IsEnabled": true,
+      "Version": "2.0"
+    }
+  ]
+}

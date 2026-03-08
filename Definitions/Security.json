@@ -1,0 +1,254 @@
+{
+  "Category": "Security",
+  "Description": "Active Directory security configuration checks",
+  "Version": "2.0",
+  "Checks": [
+    {
+      "CheckId": "SEC-001",
+      "CheckName": "Stale Computer Accounts",
+      "Category": "Security",
+      "Severity": "Medium",
+      "ScriptPath": "Test-StaleComputers.ps1",
+      "PassMessage": "No stale computer accounts detected",
+      "FailMessage": "Stale computer accounts detected",
+      "EvaluationRules": [
+        {
+          "RuleId": "SEC-001-STALE-COMPUTERS",
+          "Condition": "Any(HasIssue == true)",
+          "Status": "Warning",
+          "Severity": "medium",
+          "Message": "Stale computer accounts found - not authenticated in 90+ days"
+        },
+        {
+          "RuleId": "SEC-001-ISUNHEALTHY",
+          "Condition": "IsHealthy == false",
+          "Status": "Warning",
+          "Severity": "medium",
+          "Message": "Stale computer account check reported issues"
+        }
+      ],
+      "IsEnabled": true,
+      "Version": "2.0"
+    },
+    {
+      "CheckId": "SEC-002",
+      "CheckName": "Privileged Account Monitoring",
+      "Category": "Security",
+      "Severity": "High",
+      "ScriptPath": "Test-PrivilegedAccounts.ps1",
+      "PassMessage": "Privileged accounts are properly secured",
+      "FailMessage": "Privileged account security issues detected",
+      "EvaluationRules": [
+        {
+          "RuleId": "SEC-002-MISSING-PROTECTION",
+          "Condition": "Any(MissingAdminSDHolder == true)",
+          "Status": "Fail",
+          "Severity": "high",
+          "Message": "Privileged accounts missing AdminSDHolder protection"
+        },
+        {
+          "RuleId": "SEC-002-NOT-PROTECTED-USERS",
+          "Condition": "Any(InProtectedUsersGroup == false)",
+          "Status": "Warning",
+          "Severity": "medium",
+          "Message": "Privileged accounts not in Protected Users security group"
+        },
+        {
+          "RuleId": "SEC-002-HASISSUE",
+          "Condition": "Any(HasIssue == true)",
+          "Status": "Fail",
+          "Severity": "high",
+          "Message": "Privileged account security issue detected"
+        }
+      ],
+      "IsEnabled": true,
+      "Version": "2.0"
+    },
+    {
+      "CheckId": "SEC-003",
+      "CheckName": "Krbtgt Password Age",
+      "Category": "Security",
+      "Severity": "High",
+      "CriticalThreshold": 365,
+      "WarningThreshold": 180,
+      "ScriptPath": "Test-KrbtgtPasswordAge.ps1",
+      "PassMessage": "Krbtgt password has been rotated recently",
+      "FailMessage": "Krbtgt password has not been rotated recently",
+      "EvaluationRules": [
+        {
+          "RuleId": "SEC-003-CRITICAL-AGE",
+          "Condition": "Any(PasswordAgeDays > 365)",
+          "Status": "Fail",
+          "Severity": "critical",
+          "Message": "Krbtgt password has not been changed in over a year - Golden Ticket risk"
+        },
+        {
+          "RuleId": "SEC-003-WARN-AGE",
+          "Condition": "Any(PasswordAgeDays > 180)",
+          "Status": "Warning",
+          "Severity": "high",
+          "Message": "Krbtgt password age exceeds recommended rotation period"
+        },
+        {
+          "RuleId": "SEC-003-HASISSUE",
+          "Condition": "Any(HasIssue == true)",
+          "Status": "Warning",
+          "Severity": "high",
+          "Message": "Krbtgt password age issue detected"
+        }
+      ],
+      "IsEnabled": true,
+      "Version": "2.0"
+    },
+    {
+      "CheckId": "SEC-004",
+      "CheckName": "DSRM Password Age",
+      "Category": "Security",
+      "Severity": "High",
+      "ScriptPath": "Test-DSRMPasswordAge.ps1",
+      "PassMessage": "DSRM passwords are set and current on all DCs",
+      "FailMessage": "DSRM password issues detected on domain controllers",
+      "EvaluationRules": [
+        {
+          "RuleId": "SEC-004-NEVER-SET",
+          "Condition": "Any(PasswordAgeDays > 99000)",
+          "Status": "Fail",
+          "Severity": "critical",
+          "Message": "DSRM password has never been set - DC recovery will fail"
+        },
+        {
+          "RuleId": "SEC-004-OLD-PASSWORD",
+          "Condition": "Any(PasswordAgeDays > 365)",
+          "Status": "Warning",
+          "Severity": "high",
+          "Message": "DSRM password has not been changed in over a year"
+        },
+        {
+          "RuleId": "SEC-004-HASISSUE",
+          "Condition": "Any(HasIssue == true)",
+          "Status": "Fail",
+          "Severity": "critical",
+          "Message": "DSRM password issue detected"
+        }
+      ],
+      "IsEnabled": true,
+      "Version": "2.0"
+    },
+    {
+      "CheckId": "SEC-005",
+      "CheckName": "Stale User Accounts",
+      "Category": "Security",
+      "Severity": "Medium",
+      "ScriptPath": "Test-StaleUserAccounts.ps1",
+      "PassMessage": "No excessive stale user accounts detected",
+      "FailMessage": "Stale user accounts detected",
+      "EvaluationRules": [
+        {
+          "RuleId": "SEC-005-CRITICAL-STALE",
+          "Condition": "Any(StaleUsers180Days > 50)",
+          "Status": "Warning",
+          "Severity": "high",
+          "Message": "Large number of user accounts inactive for 180+ days"
+        },
+        {
+          "RuleId": "SEC-005-WARN-STALE",
+          "Condition": "Any(StaleUsers90Days > 50)",
+          "Status": "Warning",
+          "Severity": "medium",
+          "Message": "Significant number of user accounts inactive for 90+ days"
+        },
+        {
+          "RuleId": "SEC-005-HASISSUE",
+          "Condition": "Any(HasIssue == true)",
+          "Status": "Warning",
+          "Severity": "medium",
+          "Message": "Stale user account issue detected"
+        }
+      ],
+      "IsEnabled": true,
+      "Version": "2.0"
+    },
+    {
+      "CheckId": "SEC-006",
+      "CheckName": "Password Policy",
+      "Category": "Security",
+      "Severity": "High",
+      "ScriptPath": "Test-PasswordPolicy.ps1",
+      "PassMessage": "Password policy meets security requirements",
+      "FailMessage": "Password policy does not meet security requirements",
+      "EvaluationRules": [
+        {
+          "RuleId": "SEC-006-POLICY-ISSUES",
+          "Condition": "Any(IssuesFound > 0)",
+          "Status": "Fail",
+          "Severity": "high",
+          "Message": "Password policy security issues detected"
+        },
+        {
+          "RuleId": "SEC-006-POLICY-WARNINGS",
+          "Condition": "Any(WarningsFound > 0)",
+          "Status": "Warning",
+          "Severity": "medium",
+          "Message": "Password policy configuration warnings found"
+        },
+        {
+          "RuleId": "SEC-006-REVERSIBLE",
+          "Condition": "Any(ReversibleEncryptionEnabled == true)",
+          "Status": "Fail",
+          "Severity": "critical",
+          "Message": "Reversible encryption is enabled - passwords stored insecurely"
+        },
+        {
+          "RuleId": "SEC-006-HASISSUE",
+          "Condition": "Any(HasIssue == true)",
+          "Status": "Fail",
+          "Severity": "high",
+          "Message": "Password policy issue detected"
+        }
+      ],
+      "IsEnabled": true,
+      "Version": "2.0"
+    },
+    {
+      "CheckId": "SEC-007",
+      "CheckName": "Account Lockout Policy",
+      "Category": "Security",
+      "Severity": "High",
+      "ScriptPath": "Test-AccountLockoutPolicy.ps1",
+      "PassMessage": "Account lockout policy meets security requirements",
+      "FailMessage": "Account lockout policy issues detected",
+      "EvaluationRules": [
+        {
+          "RuleId": "SEC-007-NO-LOCKOUT",
+          "Condition": "Any(LockoutEnabled == false)",
+          "Status": "Fail",
+          "Severity": "high",
+          "Message": "Account lockout is not configured - brute force attacks possible"
+        },
+        {
+          "RuleId": "SEC-007-POLICY-ISSUES",
+          "Condition": "Any(IssuesFound > 0)",
+          "Status": "Fail",
+          "Severity": "high",
+          "Message": "Account lockout policy security issues detected"
+        },
+        {
+          "RuleId": "SEC-007-POLICY-WARNINGS",
+          "Condition": "Any(WarningsFound > 0)",
+          "Status": "Warning",
+          "Severity": "medium",
+          "Message": "Account lockout policy configuration warnings found"
+        },
+        {
+          "RuleId": "SEC-007-HASISSUE",
+          "Condition": "Any(HasIssue == true)",
+          "Status": "Fail",
+          "Severity": "high",
+          "Message": "Account lockout policy issue detected"
+        }
+      ],
+      "IsEnabled": true,
+      "Version": "2.0"
+    }
+  ]
+}

@@ -1,0 +1,70 @@
+{
+  "Category": "Time",
+  "Description": "Time synchronization health checks",
+  "Version": "2.0",
+  "Checks": [
+    {
+      "CheckId": "TIME-001",
+      "CheckName": "PDC Time Source",
+      "Category": "Time",
+      "Severity": "Critical",
+      "ScriptPath": "Test-PDCTimeSource.ps1",
+      "PassMessage": "PDC Emulator is synchronized to a reliable external time source",
+      "FailMessage": "PDC Emulator time source issues detected",
+      "EvaluationRules": [
+        {
+          "RuleId": "TIME-001-NO-EXTERNAL",
+          "Condition": "Any(HasIssue == true)",
+          "Status": "Fail",
+          "Severity": "critical",
+          "Message": "PDC Emulator has no external NTP time source configured"
+        },
+        {
+          "RuleId": "TIME-001-ISUNHEALTHY",
+          "Condition": "IsHealthy == false",
+          "Status": "Fail",
+          "Severity": "critical",
+          "Message": "PDC time source check reported failure"
+        }
+      ],
+      "IsEnabled": true,
+      "Version": "2.0"
+    },
+    {
+      "CheckId": "TIME-002",
+      "CheckName": "DC Time Offset",
+      "Category": "Time",
+      "Severity": "High",
+      "CriticalThreshold": 300,
+      "WarningThreshold": 60,
+      "ScriptPath": "Test-DCTimeOffset.ps1",
+      "PassMessage": "All DCs are synchronized within acceptable time offset limits",
+      "FailMessage": "Time synchronization issues detected on domain controllers",
+      "EvaluationRules": [
+        {
+          "RuleId": "TIME-002-CRITICAL-OFFSET",
+          "Condition": "Any(OffsetSeconds > 300)",
+          "Status": "Fail",
+          "Severity": "critical",
+          "Message": "DC time offset exceeds 5 minutes - Kerberos authentication will fail"
+        },
+        {
+          "RuleId": "TIME-002-WARN-OFFSET",
+          "Condition": "Any(OffsetSeconds > 60)",
+          "Status": "Warning",
+          "Severity": "high",
+          "Message": "DC time offset exceeds 1 minute - approaching Kerberos tolerance limit"
+        },
+        {
+          "RuleId": "TIME-002-HASISSUE",
+          "Condition": "Any(HasIssue == true)",
+          "Status": "Warning",
+          "Severity": "high",
+          "Message": "DC time offset issue detected"
+        }
+      ],
+      "IsEnabled": true,
+      "Version": "2.0"
+    }
+  ]
+}
