@@ -57,14 +57,14 @@ try {
         if ($replMethod -eq "DFSR") {
             # Check DFSR health
             try {
-                $dfsrDiag = & dfsrdiag replicationstate 2>&1 | Out-String
-                
-                $hasErrors = $dfsrDiag -match "Error|Failed|Stopped"
-                $inSync = $dfsrDiag -match "In Sync"
-                
-                # Check backlog
-                $backlogMatch = $dfsrDiag -match "Backlog.*?(\d+)"
-                $backlogCount = if ($backlogMatch -and $matches[1]) { [int]$matches[1] } else { 0 }
+                # Use WMI instead of dfsrdiag (not always installed)
+                $dfsrFolders = @(Get-WmiObject -Namespace "root\MicrosoftDFS" `
+                    -Class DfsrReplicatedFolderInfo -ErrorAction Stop |
+                    Where-Object { $_.ReplicationGroupName -eq "Domain System Volume" })
+
+                $hasErrors = @($dfsrFolders | Where-Object { $_.LastErrorCode -ne 0 }).Count -gt 0
+                $inSync    = @($dfsrFolders | Where-Object { $_.State -eq 4 }).Count -gt 0
+                $backlogCount = 0  # WMI doesn't expose backlog directly
                 
                 $result = [PSCustomObject]@{
                     Domain = $domain.Name

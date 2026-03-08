@@ -23,6 +23,7 @@ param(
 )
 
 $ErrorActionPreference = 'Continue'
+Import-Module DnsServer -ErrorAction SilentlyContinue
 $results = @()
 
 Write-Verbose "[DNS-003] Starting DNS forwarders check..."
@@ -40,7 +41,7 @@ try {
         
         try {
             # Get DNS forwarders
-            $forwarders = Get-DnsServerForwarder -ComputerName $dc.HostName -ErrorAction Stop
+            $forwarders = Get-DnsServerForwarder -ComputerName $dc.Name -ErrorAction Stop
             
             if (-not $forwarders.IPAddress -or $forwarders.IPAddress.Count -eq 0) {
                 # No forwarders configured

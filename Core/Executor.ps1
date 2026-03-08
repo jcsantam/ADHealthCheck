@@ -57,6 +57,8 @@ function Invoke-CheckExecution {
     $adModule = Get-Module -Name ActiveDirectory -ListAvailable | Select-Object -First 1
     if ($null -ne $adModule) {
         $sessionState.ImportPSModule('ActiveDirectory')
+        $sessionState.ImportPSModule('DnsServer')
+        $sessionState.ImportPSModule('GroupPolicy')
     }
 
     $pool = [System.Management.Automation.Runspaces.RunspaceFactory]::CreateRunspacePool(
@@ -123,7 +125,8 @@ function Invoke-CheckExecution {
 
             try {
                 # Direct invocation - passes Inventory by reference within same process
-                $output = & $ScriptPath -Inventory $InvData
+                $inv = $InvData | ConvertFrom-Json
+                $output = & $ScriptPath -Inventory $inv
             }
             catch {
                 $errMsg = $_.Exception.Message
@@ -145,7 +148,7 @@ function Invoke-CheckExecution {
         $ps.RunspacePool = $pool
         $null = $ps.AddScript($scriptBlock)
         $null = $ps.AddArgument($scriptPath)
-        $null = $ps.AddArgument($Inventory)
+        $null = $ps.AddArgument(($Inventory | ConvertTo-Json -Depth 10 -Compress))
         $null = $ps.AddArgument($checkId)
         $null = $ps.AddArgument($TimeoutSeconds)
 

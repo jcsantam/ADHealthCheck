@@ -77,7 +77,7 @@ try {
         }
         
         # Test Domain Naming Master
-        $domainNamingMaster = $forestInfo.DomainNamingMaster
+        $domainNamingMaster = $forestInfo.NamingMaster
         
         Write-Verbose "[FSMO-002] Testing Domain Naming Master: $domainNamingMaster"
         

@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     GPO Permissions Validation Check (GPO-004)
 
@@ -23,6 +23,7 @@ param(
 )
 
 $ErrorActionPreference = 'Continue'
+Import-Module GroupPolicy -ErrorAction SilentlyContinue
 $results = @()
 
 Write-Verbose "[GPO-004] Starting GPO permissions validation check..."
@@ -178,3 +179,6 @@ catch {
         Message = "Check execution failed: $_"
     })
 }
+
+
+

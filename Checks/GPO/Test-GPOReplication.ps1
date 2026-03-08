@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     GPO Replication Status Check (GPO-002)
 
@@ -23,6 +23,7 @@ param(
 )
 
 $ErrorActionPreference = 'Continue'
+Import-Module GroupPolicy -ErrorAction SilentlyContinue
 $results = @()
 
 Write-Verbose "[GPO-002] Starting GPO replication status check..."
@@ -161,3 +162,6 @@ catch {
         Message = "Check execution failed: $_"
     })
 }
+
+
+

@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Orphaned GPO Check (GPO-001)
 
@@ -32,6 +32,7 @@ param(
 )
 
 $ErrorActionPreference = 'Continue'
+Import-Module GroupPolicy -ErrorAction SilentlyContinue
 $results = @()
 
 Write-Verbose "[GPO-001] Starting orphaned GPO check..."
@@ -274,3 +275,6 @@ catch {
         Message = "Check execution failed: $($_.Exception.Message)"
     })
 }
+
+
+
