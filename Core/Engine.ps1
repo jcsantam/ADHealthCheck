@@ -389,9 +389,8 @@ $checkDefinitions += $defs
         Write-Host "  Report : $reportPath" -ForegroundColor Cyan
         Write-Log -Level Information -Message "Report saved: $reportPath"
 
-        if ([System.Environment]::UserInteractive) {
-            Start-Process $reportPath -ErrorAction SilentlyContinue
-        }
+# Open report in default browser
+        Start-Process $reportPath -ErrorAction SilentlyContinue
     }
     catch {
         Write-Log -Level Error -Message "Report generation failed: $($_.Exception.Message)"

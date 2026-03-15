@@ -59,7 +59,7 @@ try {
         
         try {
             # Check for Event ID 2095 (USN rollback detected)
-            $usnEvents = Get-WinEvent -ComputerName $dc.HostName -FilterHashtable @{
+            $usnEvents = Get-WinEvent -ComputerName $dc.Name -FilterHashtable @{
                 LogName = 'Directory Service'
                 ID = 2095
             } -MaxEvents 5 -ErrorAction SilentlyContinue
@@ -77,7 +77,7 @@ try {
         
         # Also check for Event ID 1113 (NTDS database inconsistency)
         try {
-            $inconsistencyEvents = Get-WinEvent -ComputerName $dc.HostName -FilterHashtable @{
+            $inconsistencyEvents = Get-WinEvent -ComputerName $dc.Name -FilterHashtable @{
                 LogName = 'Directory Service'
                 ID = 1113
                 StartTime = (Get-Date).AddDays(-30)

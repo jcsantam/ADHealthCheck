@@ -67,7 +67,7 @@ try {
         foreach ($eventInfo in $replicationErrorIDs) {
             try {
                 # Query event log for this error in last 7 days
-                $events = Get-WinEvent -ComputerName $dc.HostName -FilterHashtable @{
+                $events = Get-WinEvent -ComputerName $dc.Name -FilterHashtable @{
                     LogName = 'Directory Service'
                     ID = $eventInfo.ID
                     StartTime = (Get-Date).AddDays(-7)

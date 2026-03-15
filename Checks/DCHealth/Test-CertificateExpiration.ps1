@@ -44,7 +44,7 @@ try {
         
         try {
             # Get certificates from remote DC
-            $certs = Invoke-Command -ComputerName $dc.HostName -ScriptBlock {
+            $certs = Invoke-Command -ComputerName $dc.Name -ScriptBlock {
                 Get-ChildItem -Path Cert:\LocalMachine\My -ErrorAction SilentlyContinue |
                     Where-Object { $_.HasPrivateKey -and $_.NotAfter -gt (Get-Date) }
             } -ErrorAction Stop

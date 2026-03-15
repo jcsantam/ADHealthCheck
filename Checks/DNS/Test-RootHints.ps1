@@ -48,7 +48,7 @@ try {
         
         try {
             # Get root hints
-            $rootHints = Get-DnsServerRootHint -ComputerName $dc.HostName -ErrorAction Stop
+            $rootHints = Get-DnsServerRootHint -ComputerName $dc.Name -ErrorAction Stop
             
             if (-not $rootHints -or $rootHints.Count -eq 0) {
                 $result = [PSCustomObject]@{

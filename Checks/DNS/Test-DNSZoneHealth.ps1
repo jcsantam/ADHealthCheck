@@ -51,7 +51,7 @@ try {
     
     try {
         # Get DNS zones
-        $zones = Get-DnsServerZone -ComputerName $primaryDC.HostName -ErrorAction Stop
+        $zones = Get-DnsServerZone -ComputerName $primaryDC.Name -ErrorAction Stop
         
         # Filter to AD-integrated zones
         $adZones = $zones | Where-Object { 

@@ -44,7 +44,7 @@ try {
         
         try {
             # Get server scavenging settings
-            $serverSettings = Get-DnsServerScavenging -ComputerName $dc.HostName -ErrorAction Stop
+            $serverSettings = Get-DnsServerScavenging -ComputerName $dc.Name -ErrorAction Stop
             
             $scavengingEnabled = $serverSettings.ScavengingState
             $scavengingInterval = $serverSettings.ScavengingInterval.Days
@@ -52,7 +52,7 @@ try {
             $refreshInterval = $serverSettings.RefreshInterval.Days
             
             # Get zones with scavenging enabled
-            $zones = Get-DnsServerZone -ComputerName $dc.HostName -ErrorAction Stop
+            $zones = Get-DnsServerZone -ComputerName $dc.Name -ErrorAction Stop
             $zonesWithScavenging = ($zones | Where-Object { $_.IsAutoCreated -eq $false -and $_.Aging -eq $true }).Count
             $totalZones = ($zones | Where-Object { $_.IsAutoCreated -eq $false }).Count
             

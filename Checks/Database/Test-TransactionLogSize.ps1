@@ -46,14 +46,14 @@ try {
         
         try {
             # Get log directory path
-            $logPath = Invoke-Command -ComputerName $dc.HostName -ScriptBlock {
+            $logPath = Invoke-Command -ComputerName $dc.Name -ScriptBlock {
                 $regPath = "HKLM:\SYSTEM\CurrentControlSet\Services\NTDS\Parameters"
                 $dbLogPath = (Get-ItemProperty -Path $regPath -Name "Database log files path")."Database log files path"
                 return $dbLogPath
             } -ErrorAction Stop
             
             # Get log files
-            $logFiles = Invoke-Command -ComputerName $dc.HostName -ScriptBlock {
+            $logFiles = Invoke-Command -ComputerName $dc.Name -ScriptBlock {
                 param($Path)
                 
                 if (Test-Path $Path) {

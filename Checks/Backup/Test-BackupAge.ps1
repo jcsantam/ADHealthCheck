@@ -46,7 +46,8 @@ try {
     
     # Get tombstone lifetime from forest
     $forestDN = $Inventory.ForestInfo.RootDomain
-    $configDN = "CN=Configuration," + (Get-ADDomain -Server $forestDN).DistinguishedName.Replace("DC=$($forestDN.Split('.')[0]),", "")
+    # Build config DN directly - avoids Get-ADDomain runspace issues
+    $configDN = "CN=Configuration,DC=" + ($forestDN -replace '\.', ',DC=')
     
     try {
         $directoryService = Get-ADObject -Identity "CN=Directory Service,CN=Windows NT,CN=Services,$configDN" `
@@ -76,7 +77,7 @@ try {
         
         try {
             # Check Windows Server Backup status
-            $backupInfo = Invoke-Command -ComputerName $dc.HostName -ScriptBlock {
+            $backupInfo = Invoke-Command -ComputerName $dc.Name -ScriptBlock {
                 param($TombstoneLifetime)
                 
                 # Try to get last backup info from registry (Windows Server Backup)

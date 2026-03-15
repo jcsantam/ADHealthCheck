@@ -31,10 +31,10 @@ param(
 )
 
 $ErrorActionPreference = 'Continue'
-# At the start of both scripts, detect single-DC and skip remote reachability test:
+# Single-DC environment - no replication partners to check
 $dcCount = @($Inventory.DomainControllers).Count
 if ($dcCount -eq 1) {
-    # Local DC holds all FSMO roles - verify locally, not via network ping
+    # Single-DC environment - no replication partners to check
     return [PSCustomObject]@{
         IsHealthy = $true
         Status    = 'Pass'

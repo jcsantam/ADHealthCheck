@@ -48,14 +48,14 @@ try {
         
         try {
             # Check KDC service
-            $kdcService = Get-Service -Name "Kdc" -ComputerName $dc.HostName -ErrorAction Stop
+            $kdcService = Get-Service -Name "Kdc" -ComputerName $dc.Name -ErrorAction Stop
             
             $serviceRunning = ($kdcService.Status -eq 'Running')
             
             # Check for Kerberos errors in last 24 hours
             $errorCount = 0
             try {
-                $events = Get-WinEvent -ComputerName $dc.HostName -FilterHashtable @{
+                $events = Get-WinEvent -ComputerName $dc.Name -FilterHashtable @{
                     LogName = 'System'
                     ProviderName = 'Microsoft-Windows-Kerberos-Key-Distribution-Center'
                     Level = 2  # Error

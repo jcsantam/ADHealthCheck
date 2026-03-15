@@ -91,7 +91,7 @@ try {
             $gcResponding = $false
             try {
                 $searcher = New-Object DirectoryServices.DirectorySearcher
-                $searcher.SearchRoot = "GC://$($dc.HostName)"
+                $searcher.SearchRoot = "GC://$($dc.Name)"
                 $searcher.Filter = "(objectClass=*)"
                 $searcher.PropertiesToLoad.Add("cn") | Out-Null
                 $searcher.PageSize = 1

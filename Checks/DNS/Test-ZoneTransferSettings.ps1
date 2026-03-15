@@ -40,7 +40,7 @@ try {
         
         try {
             # Get all DNS zones
-            $zones = Get-DnsServerZone -ComputerName $dc.HostName -ErrorAction Stop
+            $zones = Get-DnsServerZone -ComputerName $dc.Name -ErrorAction Stop
             
             $totalZones = $zones.Count
             $insecureZones = 0

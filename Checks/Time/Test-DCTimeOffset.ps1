@@ -64,7 +64,7 @@ try {
         
         # Get PDC time
         try {
-            $pdcTime = Invoke-Command -ComputerName $pdcDC.HostName -ScriptBlock { Get-Date } -ErrorAction Stop
+            $pdcTime = Invoke-Command -ComputerName $pdcDC.Name -ScriptBlock { Get-Date } -ErrorAction Stop
             
             Write-Verbose "[TIME-002] PDC $pdcName time: $pdcTime"
         }
@@ -86,7 +86,7 @@ try {
             
             try {
                 # Get DC time
-                $dcTime = Invoke-Command -ComputerName $dc.HostName -ScriptBlock { Get-Date } -ErrorAction Stop
+                $dcTime = Invoke-Command -ComputerName $dc.Name -ScriptBlock { Get-Date } -ErrorAction Stop
                 
                 # Calculate offset
                 $offsetSeconds = [math]::Abs(($dcTime - $pdcTime).TotalSeconds)

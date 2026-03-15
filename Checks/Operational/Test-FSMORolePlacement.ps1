@@ -28,7 +28,7 @@ $ErrorActionPreference = 'Continue'
 #Single-DC environment holds all FSMO roles locally - remote reachability check not applicable
 $dcCount = @($Inventory.DomainControllers).Count
 if ($dcCount -eq 1) {
-    # Local DC holds all FSMO roles - verify locally, not via network ping
+    # Single-DC environment - FSMO roles held locally
     return [PSCustomObject]@{
         IsHealthy = $true
         Status    = 'Pass'

@@ -39,7 +39,9 @@ try {
     
     try {
         # Get all sites
-        $configDN = "CN=Configuration,$((Get-ADRootDSE).defaultNamingContext)"
+        # Build config DN directly from inventory - avoids Get-ADRootDSE runspace issues
+    $forestDN = 'DC=' + ($Inventory.ForestInfo.Name -replace '\.', ',DC=')
+    $configDN = "CN=Configuration,$forestDN"
         $sites = Get-ADObject -Filter {objectClass -eq 'site'} -SearchBase "CN=Sites,$configDN" -Properties siteObjectBL, location -ErrorAction Stop
         
         # Get all subnets

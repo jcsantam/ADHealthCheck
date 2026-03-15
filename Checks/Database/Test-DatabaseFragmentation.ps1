@@ -44,13 +44,13 @@ try {
         
         try {
             # Get NTDS database path
-            $dbPath = Invoke-Command -ComputerName $dc.HostName -ScriptBlock {
+            $dbPath = Invoke-Command -ComputerName $dc.Name -ScriptBlock {
                 $regPath = "HKLM:\SYSTEM\CurrentControlSet\Services\NTDS\Parameters"
                 (Get-ItemProperty -Path $regPath -Name "DSA Database file")."DSA Database file"
             } -ErrorAction Stop
             
             # Run esentutl to get database stats (non-invasive)
-            $dbStats = Invoke-Command -ComputerName $dc.HostName -ScriptBlock {
+            $dbStats = Invoke-Command -ComputerName $dc.Name -ScriptBlock {
                 param($DbPath)
                 
                 $output = & esentutl /ms $DbPath 2>&1 | Out-String

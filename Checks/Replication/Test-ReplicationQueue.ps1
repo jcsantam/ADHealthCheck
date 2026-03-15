@@ -44,11 +44,11 @@ try {
         
         try {
             # Get DRA (Directory Replication Agent) queue statistics
-            $inboundQueue = Get-Counter -ComputerName $dc.HostName `
+            $inboundQueue = Get-Counter -ComputerName $dc.Name `
                 -Counter "\NTDS\DRA Inbound Objects Remaining in Packet" `
                 -ErrorAction SilentlyContinue
             
-            $outboundQueue = Get-Counter -ComputerName $dc.HostName `
+            $outboundQueue = Get-Counter -ComputerName $dc.Name `
                 -Counter "\NTDS\DRA Outbound Objects Filtered/sec" `
                 -ErrorAction SilentlyContinue
             
@@ -61,7 +61,7 @@ try {
             } else { 0 }
             
             # Also check pending operations
-            $pendingOps = Get-Counter -ComputerName $dc.HostName `
+            $pendingOps = Get-Counter -ComputerName $dc.Name `
                 -Counter "\NTDS\DRA Pending Replication Operations" `
                 -ErrorAction SilentlyContinue
             

@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     AdminSDHolder and Privileged Groups Check (SEC-002)
 
@@ -171,7 +171,7 @@ try {
             # Check AdminSDHolder object itself
             try {
                 $adminSDHolder = Get-ADObject -Filter "Name -eq 'AdminSDHolder'" `
-                    -SearchBase "CN=System,$((Get-ADDomain -Server $domain.Name).DistinguishedName)" `
+                    -SearchBase "CN=System,$domainDN" `
                     -Properties whenChanged `
                     -Server $domain.Name -ErrorAction Stop
                 

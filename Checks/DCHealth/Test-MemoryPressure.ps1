@@ -44,7 +44,7 @@ try {
         
         try {
             # Get memory info using WMI (compatible with 2012 R2+)
-            $os = Get-WmiObject -Class Win32_OperatingSystem -ComputerName $dc.HostName -ErrorAction Stop
+            $os = Get-WmiObject -Class Win32_OperatingSystem -ComputerName $dc.Name -ErrorAction Stop
             
             $totalMemoryGB = [math]::Round($os.TotalVisibleMemorySize / 1MB, 2)
             $freeMemoryGB = [math]::Round($os.FreePhysicalMemory / 1MB, 2)

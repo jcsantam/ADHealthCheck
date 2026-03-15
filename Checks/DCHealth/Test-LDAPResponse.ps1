@@ -47,7 +47,7 @@ try {
             $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
             
             $searcher = New-Object DirectoryServices.DirectorySearcher
-            $searcher.SearchRoot = "LDAP://$($dc.HostName)"
+            $searcher.SearchRoot = "LDAP://$($dc.Name)"
             $searcher.Filter = "(objectClass=user)"
             $searcher.PropertiesToLoad.Add("cn") | Out-Null
             $searcher.PageSize = 100

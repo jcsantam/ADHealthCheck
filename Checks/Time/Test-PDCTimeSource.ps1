@@ -81,7 +81,7 @@ try {
         
         try {
             # Query W32Time configuration
-            $w32tmConfig = w32tm /query /computer:$pdcDC.HostName /configuration 2>&1
+            $w32tmConfig = w32tm /query /computer:$pdcDC.Name /configuration 2>&1
             
             # Check if configured as reliable time source
             $isReliable = $w32tmConfig -match "LocalClockDispersion.*0x0A"
@@ -95,7 +95,7 @@ try {
             $hasExternalSource = ($ntpServer -ne "Not configured" -and $ntpServer -notlike "*,0x0*")
             
             # Get time source status
-            $w32tmStatus = w32tm /query /computer:$pdcDC.HostName /status 2>&1
+            $w32tmStatus = w32tm /query /computer:$pdcDC.Name /status 2>&1
             
             $stratum = $null
             if ($w32tmStatus -match "Stratum:\s*(\d+)") {

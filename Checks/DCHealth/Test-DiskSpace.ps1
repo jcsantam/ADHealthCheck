@@ -66,7 +66,7 @@ try {
         
         try {
             # Get all logical disks
-            $disks = Get-WmiObject -Class Win32_LogicalDisk -ComputerName $dc.HostName -Filter "DriveType=3" -ErrorAction Stop
+            $disks = Get-WmiObject -Class Win32_LogicalDisk -ComputerName $dc.Name -Filter "DriveType=3" -ErrorAction Stop
             
             foreach ($disk in $disks) {
                 $driveLetter = $disk.DeviceID

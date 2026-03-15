@@ -40,7 +40,7 @@ try {
         
         try {
             # Get VSS writer status
-            $vssOutput = Invoke-Command -ComputerName $dc.HostName -ScriptBlock {
+            $vssOutput = Invoke-Command -ComputerName $dc.Name -ScriptBlock {
                 & vssadmin list writers 2>&1 | Out-String
             } -ErrorAction Stop
             
