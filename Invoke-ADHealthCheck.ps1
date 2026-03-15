@@ -45,7 +45,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $false)]
-    [string]$OutputPath = "$PSScriptRoot\Output",
+    [string]$OutputPath = "",
     
     [Parameter(Mandatory = $false)]
     [ValidateSet('Replication', 'DCHealth', 'DNS', 'GPO', 'Time', 'Backup', 'Security', 'Database', 'Operational')]
@@ -59,7 +59,9 @@ param(
     [ValidateRange(1, 50)]
     [int]$MaxParallelJobs = 10
 )
-
+# Resolve script root - handles both direct execution and -File launch
+$scriptRoot = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $MyInvocation.MyCommand.Path }
+if (-not $OutputPath) { $OutputPath = "$scriptRoot\Output" }
 # Set strict mode
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
@@ -135,7 +137,7 @@ Write-Host ""
 
 Write-Host "[Initialization] Loading core engine..." -ForegroundColor Yellow
 
-$enginePath = Join-Path $PSScriptRoot "Core\Engine.ps1"
+$enginePath = Join-Path $scriptRoot "Core\Engine.ps1"
 
 if (-not (Test-Path $enginePath)) {
     Write-Host "  ERROR: Core engine not found: $enginePath" -ForegroundColor Red

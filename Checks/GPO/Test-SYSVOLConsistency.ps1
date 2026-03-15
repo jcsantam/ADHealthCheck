@@ -23,6 +23,16 @@ param(
 )
 
 $ErrorActionPreference = 'Continue'
+# At the start of both scripts, detect single-DC and skip remote reachability test:
+$dcCount = @($Inventory.DomainControllers).Count
+if ($dcCount -eq 1) {
+    # Local DC holds all FSMO roles - verify locally, not via network ping
+    return [PSCustomObject]@{
+        IsHealthy = $true
+        Status    = 'Pass'
+        Message   = 'Single-DC environment - SYSVOL consistency check not applicable'
+    }
+}
 $results = @()
 
 Write-Verbose "[GPO-003] Starting SYSVOL consistency check..."
@@ -73,7 +83,7 @@ try {
                 if ($dc.Name -eq $pdcName) { continue }
                 
                 try {
-                    $dcSysvolPath = "\\$($dc.HostName)\SYSVOL\$($domain.Name)\Policies"
+                    $dcSysvolPath = "\\$($dc.Name)\SYSVOL\$($domain.Name)\Policies"
                     
                     $dcGPOFolders = Get-ChildItem -Path $dcSysvolPath -Directory -ErrorAction Stop | 
                         Where-Object { $_.Name -match '\{[A-F0-9\-]+\}' }

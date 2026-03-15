@@ -32,6 +32,7 @@ param(
 )
 
 $ErrorActionPreference = 'Continue'
+# NO single-DC guard here - stale computers exist regardless of DC count
 $results = @()
 
 # Thresholds
@@ -170,7 +171,16 @@ try {
     }
     
     Write-Verbose "[SEC-001] Check complete. Total issues: $($results.Count)"
-    
+    # Guard goes HERE - inside try, before return
+    if (@($results).Count -eq 0) {
+        return [PSCustomObject]@{
+            Domain    = 'All'
+            IsHealthy = $true
+            Status    = 'Pass'
+            HasIssue  = $false
+            Message   = 'No stale computer accounts detected'
+        }
+    }
     return $results
 }
 catch {

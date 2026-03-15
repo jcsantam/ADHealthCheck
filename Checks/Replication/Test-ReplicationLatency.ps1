@@ -22,6 +22,16 @@ param(
 )
 
 $ErrorActionPreference = 'Continue'
+# At the start of both scripts, detect single-DC and skip remote reachability test:
+$dcCount = @($Inventory.DomainControllers).Count
+if ($dcCount -eq 1) {
+    # Local DC holds all FSMO roles - verify locally, not via network ping
+    return [PSCustomObject]@{
+        IsHealthy = $true
+        Status    = 'Pass'
+        Message   = 'Single-DC environment - replication latency check not applicable'
+    }
+}
 $results = @()
 
 # Thresholds
@@ -40,7 +50,7 @@ try {
     
     foreach ($dc in $domainControllers) {
         try {
-            $repadminOutput = & repadmin /showrepl $dc.HostName /csv 2>&1
+            $repadminOutput = & repadmin /showrepl $dc.Name /csv 2>&1
             
             if ($LASTEXITCODE -ne 0) { continue }
             

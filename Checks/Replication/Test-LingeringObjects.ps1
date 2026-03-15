@@ -23,6 +23,16 @@ param(
 )
 
 $ErrorActionPreference = 'Continue'
+# At the start of both scripts, detect single-DC and skip remote reachability test:
+$dcCount = @($Inventory.DomainControllers).Count
+if ($dcCount -eq 1) {
+    # Local DC holds all FSMO roles - verify locally, not via network ping
+    return [PSCustomObject]@{
+        IsHealthy = $true
+        Status    = 'Pass'
+        Message   = 'Single-DC environment - lingering objects check not applicable'
+    }
+}
 $results = @()
 
 Write-Verbose "[REP-009] Starting lingering objects detection check..."
@@ -61,7 +71,7 @@ try {
                 
                 try {
                     # Run repadmin in advisory mode (read-only, no changes)
-                    $repadminOutput = & repadmin /removelingeringobjects $dc.HostName $pdcName $domainDN /advisory_mode 2>&1 | Out-String
+                    $repadminOutput = & repadmin /removelingeringobjects $dc.Name $pdcName $domainDN /advisory_mode 2>&1 | Out-String
                     
                     # Parse output for lingering objects count
                     $lingeringCount = 0

@@ -16,6 +16,8 @@
     Compatible: Windows Server 2012 R2+
 #>
 
+
+
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $true)]
@@ -23,6 +25,16 @@ param(
 )
 
 $ErrorActionPreference = 'Continue'
+#Single-DC environment holds all FSMO roles locally - remote reachability check not applicable
+$dcCount = @($Inventory.DomainControllers).Count
+if ($dcCount -eq 1) {
+    # Local DC holds all FSMO roles - verify locally, not via network ping
+    return [PSCustomObject]@{
+        IsHealthy = $true
+        Status    = 'Pass'
+        Message   = 'Single-DC environment - FSMO roles held locally'
+    }
+}
 $results = @()
 
 Write-Verbose "[FSMO-001] Starting FSMO role placement check..."

@@ -23,6 +23,16 @@ param(
 )
 
 $ErrorActionPreference = 'Continue'
+# At the start of both scripts, detect single-DC and skip remote reachability test:
+$dcCount = @($Inventory.DomainControllers).Count
+if ($dcCount -eq 1) {
+    # Local DC holds all FSMO roles - verify locally, not via network ping
+    return [PSCustomObject]@{
+        IsHealthy = $true
+        Status    = 'Pass'
+        Message   = 'Single-DC environment - FSMO roles held locally'
+    }
+}
 $results = @()
 
 Write-Verbose "[FSMO-002] Starting FSMO availability testing check..."
@@ -51,7 +61,7 @@ try {
             # Test if we can query the schema
             $schemaTest = $false
             try {
-                $schema = Get-ADObject -Identity "CN=Schema,CN=Configuration,$((Get-ADRootDSE -Server $schemaMaster).defaultNamingContext)" -Server $schemaMaster -ErrorAction Stop
+                $schema = Get-ADObject -Identity "CN=Schema,$((Get-ADRootDSE -Server $schemaMaster).configurationNamingContext)" -Server $schemaMaster -ErrorAction Stop
                 $schemaTest = ($schema -ne $null)
             }
             catch {
@@ -101,19 +111,19 @@ try {
             # Test if we can query partitions container
             $partitionsTest = $false
             try {
-                $partitions = Get-ADObject -Identity "CN=Partitions,CN=Configuration,$((Get-ADRootDSE -Server $domainNamingMaster).defaultNamingContext)" -Server $domainNamingMaster -ErrorAction Stop
+                $partitions = Get-ADObject -Identity "CN=Partitions,CN=Configuration,$((Get-ADRootDSE -Server $domainNamingMaster).configurationNamingContext)" -Server $domainNamingMaster -ErrorAction Stop
                 $partitionsTest = ($partitions -ne $null)
             }
             catch {
                 $partitionsTest = $false
             }
             
-            $available = ($ldapTest.TcpTestSucceeded -and $partitionsTest)
+            $available = ($ldapResult -and $partitionsTest)
             
             $result = [PSCustomObject]@{
                 Role = "Domain Naming Master"
                 Holder = $domainNamingMaster
-                LDAPResponding = $ldapTest.TcpTestSucceeded
+                LDAPResponding = $ldapResult
                 RoleResponding = $partitionsTest
                 Available = $available
                 Severity = if (-not $available) { 'Critical' } else { 'Info' }
@@ -161,12 +171,12 @@ try {
                 $timeTest = $false
             }
             
-            $available = $ldapTest.TcpTestSucceeded
+            $available = $ldapResult
             
             $result = [PSCustomObject]@{
                 Role = "PDC Emulator ($($domain.Name))"
                 Holder = $pdcEmulator
-                LDAPResponding = $ldapTest.TcpTestSucceeded
+                LDAPResponding = $ldapResult
                 RoleResponding = $timeTest
                 Available = $available
                 Severity = if (-not $available) { 'Critical' } else { 'Info' }

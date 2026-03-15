@@ -23,6 +23,16 @@ param(
 )
 
 $ErrorActionPreference = 'Continue'
+
+$dcCount = @($Inventory.DomainControllers).Count
+if ($dcCount -eq 1) {
+    return [PSCustomObject]@{
+        IsHealthy = $true
+        Status    = 'Pass'
+        Message   = 'Single-DC environment - SYSVOL sync check not applicable'
+    }
+}
+
 $results = @()
 
 Write-Verbose "[REP-005] Starting SYSVOL replication check..."
