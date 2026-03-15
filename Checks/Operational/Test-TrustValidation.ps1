@@ -44,6 +44,19 @@ try {
             
             if (-not $trusts -or $trusts.Count -eq 0) {
                 Write-Verbose "[TRUST-001] No trusts found for $($domain.Name)"
+                $results += [PSCustomObject]@{
+                    SourceDomain = $domain.Name
+                    TargetDomain = "N/A"
+                    TrustDirection = "N/A"
+                    TrustType = "N/A"
+                    SelectiveAuth = $null
+                    TrustWorking = $true
+                    Severity = 'Info'
+                    Status = 'Healthy'
+                    IsHealthy = $true
+                    HasIssue = $false
+                    Message = "No trust relationships configured - single domain environment"
+                }
                 continue
             }
             

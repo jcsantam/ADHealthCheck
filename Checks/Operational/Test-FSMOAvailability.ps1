@@ -39,7 +39,14 @@ try {
         
         try {
             # Test LDAP connectivity
-            $ldapTest = Test-NetConnection -ComputerName $schemaMaster -Port 389 -WarningAction SilentlyContinue
+            $ldapResult = $false
+            try {
+                $tcp = New-Object System.Net.Sockets.TcpClient
+                $iar = $tcp.BeginConnect($schemaMaster, 389, $null, $null)
+                $wait = $iar.AsyncWaitHandle.WaitOne(3000)
+                if ($wait) { try { $tcp.EndConnect($iar); $ldapResult = $true } catch {} }
+                $tcp.Close()
+            } catch {}
             
             # Test if we can query the schema
             $schemaTest = $false
@@ -51,12 +58,12 @@ try {
                 $schemaTest = $false
             }
             
-            $available = ($ldapTest.TcpTestSucceeded -and $schemaTest)
+            $available = ($ldapResult -and $schemaTest)
             
             $result = [PSCustomObject]@{
                 Role = "Schema Master"
                 Holder = $schemaMaster
-                LDAPResponding = $ldapTest.TcpTestSucceeded
+                LDAPResponding = $ldapResult
                 RoleResponding = $schemaTest
                 Available = $available
                 Severity = if (-not $available) { 'Critical' } else { 'Info' }
@@ -82,7 +89,14 @@ try {
         Write-Verbose "[FSMO-002] Testing Domain Naming Master: $domainNamingMaster"
         
         try {
-            $ldapTest = Test-NetConnection -ComputerName $domainNamingMaster -Port 389 -WarningAction SilentlyContinue
+            $ldapResult = $false
+            try {
+                $tcp = New-Object System.Net.Sockets.TcpClient
+                $iar = $tcp.BeginConnect($domainNamingMaster, 389, $null, $null)
+                $wait = $iar.AsyncWaitHandle.WaitOne(3000)
+                if ($wait) { try { $tcp.EndConnect($iar); $ldapResult = $true } catch {} }
+                $tcp.Close()
+            } catch {}
             
             # Test if we can query partitions container
             $partitionsTest = $false
@@ -128,7 +142,14 @@ try {
         Write-Verbose "[FSMO-002] Testing PDC Emulator: $pdcEmulator"
         
         try {
-            $ldapTest = Test-NetConnection -ComputerName $pdcEmulator -Port 389 -WarningAction SilentlyContinue
+            $ldapResult = $false
+            try {
+                $tcp = New-Object System.Net.Sockets.TcpClient
+                $iar = $tcp.BeginConnect($pdcEmulator, 389, $null, $null)
+                $wait = $iar.AsyncWaitHandle.WaitOne(3000)
+                if ($wait) { try { $tcp.EndConnect($iar); $ldapResult = $true } catch {} }
+                $tcp.Close()
+            } catch {}
             
             # Test time service (PDC-specific)
             $timeTest = $false

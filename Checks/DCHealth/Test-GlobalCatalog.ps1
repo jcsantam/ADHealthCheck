@@ -40,10 +40,9 @@ try {
         
         try {
             # Check if DC is configured as GC
-            $dcObject = Get-ADDomainController -Identity $dc.Name -Server $dc.HostName -ErrorAction Stop
-            
-            $isGC = $dcObject.IsGlobalCatalog
-            
+            # Use inventory IsGlobalCatalog — more reliable than Get-ADDomainController in runspace
+            $isGC = ($dc.IsGlobalCatalog -eq $true -or "$($dc.IsGlobalCatalog)" -eq 'True')
+
             if (-not $isGC) {
                 # Not a GC - this is informational, not an error
                 $result = [PSCustomObject]@{
@@ -66,16 +65,27 @@ try {
             
             # DC is configured as GC - validate functionality
             
-            # Check if GC is advertising
-            $gcAdvertising = $dcObject.IsGlobalCatalog
+            $gcAdvertising = $isGC
             
-            # Test GC port 3268 (LDAP GC)
-            $gcPort3268 = Test-NetConnection -ComputerName $dc.HostName -Port 3268 -WarningAction SilentlyContinue -ErrorAction SilentlyContinue
-            $port3268Open = if ($gcPort3268) { $gcPort3268.TcpTestSucceeded } else { $false }
-            
-            # Test GC port 3269 (LDAP GC SSL)
-            $gcPort3269 = Test-NetConnection -ComputerName $dc.HostName -Port 3269 -WarningAction SilentlyContinue -ErrorAction SilentlyContinue
-            $port3269Open = if ($gcPort3269) { $gcPort3269.TcpTestSucceeded } else { $false }
+            # Test GC port 3268 (LDAP GC) - using socket with 3s timeout
+            $port3268Open = $false
+            try {
+                $tcp = New-Object System.Net.Sockets.TcpClient
+                $iar = $tcp.BeginConnect($dc.Name, 3268, $null, $null)
+                $wait = $iar.AsyncWaitHandle.WaitOne(3000)
+                if ($wait) { try { $tcp.EndConnect($iar); $port3268Open = $true } catch {} }
+                $tcp.Close()
+            } catch {}
+
+            # Test GC port 3269 (LDAP GC SSL) - using socket with 3s timeout
+            $port3269Open = $false
+            try {
+                $tcp = New-Object System.Net.Sockets.TcpClient
+                $iar = $tcp.BeginConnect($dc.Name, 3269, $null, $null)
+                $wait = $iar.AsyncWaitHandle.WaitOne(3000)
+                if ($wait) { try { $tcp.EndConnect($iar); $port3269Open = $true } catch {} }
+                $tcp.Close()
+            } catch {}
             
             # Test GC query functionality
             $gcResponding = $false

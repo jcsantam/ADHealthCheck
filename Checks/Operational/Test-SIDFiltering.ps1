@@ -44,6 +44,21 @@ try {
             
             if (-not $trusts -or $trusts.Count -eq 0) {
                 Write-Verbose "[TRUST-002] No trusts found for $($domain.Name)"
+                $results += [PSCustomObject]@{
+                    SourceDomain = $domain.Name
+                    TargetDomain = "N/A"
+                    TrustType = "N/A"
+                    TrustDirection = "N/A"
+                    SIDFilteringEnabled = $null
+                    ExpectedSIDFiltering = $null
+                    IsAppropriate = $true
+                    Recommendation = "No trusts configured"
+                    Severity = 'Info'
+                    Status = 'Healthy'
+                    IsHealthy = $true
+                    HasIssue = $false
+                    Message = "No trust relationships configured - SID filtering not applicable"
+                }
                 continue
             }
             

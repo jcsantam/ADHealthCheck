@@ -42,13 +42,14 @@ try {
             $domainDCs = $Inventory.DomainControllers | 
                 Where-Object { $_.Domain -eq $domain.Name -and $_.IsReachable }
             
-            if ($domainDCs.Count -lt 2) {
+            if (@($domainDCs).Count -lt 2) {
                 Write-Verbose "[REP-009] Only one DC - skipping check"
                 continue
             }
             
             # Get domain DN
-            $domainDN = (Get-ADDomain -Server $domain.Name).DistinguishedName
+            # Build DN from domain name directly - avoids Get-ADDomain runspace issues
+            $domainDN = ('DC=' + ($domain.Name -replace '\.', ',DC='))
             
             # Use PDC as reference server
             $pdcName = $domain.PDCEmulator

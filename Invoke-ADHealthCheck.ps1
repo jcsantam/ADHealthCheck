@@ -91,6 +91,10 @@ Write-Host ""
 # =============================================================================
 
 Write-Host "[Pre-Flight] Performing environment checks..." -ForegroundColor Yellow
+# Pre-load required modules to ensure runspace availability
+Import-Module ActiveDirectory -Force -ErrorAction SilentlyContinue
+Import-Module DnsServer -Force -ErrorAction SilentlyContinue
+Import-Module GroupPolicy -Force -ErrorAction SilentlyContinue
 
 # Check PowerShell version
 $psVersion = $PSVersionTable.PSVersion

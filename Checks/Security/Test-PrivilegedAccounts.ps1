@@ -95,7 +95,9 @@ try {
                         $severity = 'Info'
                         
                         # Check if recently added (last 30 days)
-                        $daysSinceAdded = ((Get-Date) - $memberDetails.whenCreated).Days
+                        $whenCreated = $null
+                        try { $whenCreated = [datetime]$memberDetails.whenCreated } catch { }
+                        $daysSinceAdded = if ($null -ne $whenCreated) { ((Get-Date) - $whenCreated).Days } else { 0 }
                         if ($daysSinceAdded -le 30) {
                             $issues += "Recently added ($daysSinceAdded days ago)"
                             $severity = 'Medium'
@@ -170,11 +172,13 @@ try {
             try {
                 $adminSDHolder = Get-ADObject -Filter "Name -eq 'AdminSDHolder'" `
                     -SearchBase "CN=System,$((Get-ADDomain -Server $domain.Name).DistinguishedName)" `
-                    -Properties nTSecurityDescriptor, whenChanged `
-                    -Server $domain.Name -ResultPageSize 500 -ErrorAction Stop
+                    -Properties whenChanged `
+                    -Server $domain.Name -ErrorAction Stop
                 
                 if ($adminSDHolder) {
-                    $daysSinceUpdate = ((Get-Date) - $adminSDHolder.whenChanged).Days
+                    $whenChanged = $null
+                    try { $whenChanged = [datetime]$adminSDHolder.whenChanged } catch { }
+                    $daysSinceUpdate = if ($null -ne $whenChanged) { ((Get-Date) - $whenChanged).Days } else { 0 }
                     
                     $result = [PSCustomObject]@{
                         Domain = $domain.Name

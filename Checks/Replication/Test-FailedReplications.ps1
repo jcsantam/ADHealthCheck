@@ -3,8 +3,14 @@
     Failed Replication Attempts Check (REP-007)
 
 .DESCRIPTION
-    Scans event logs for recent replication failures. Identifies patterns
-    and frequency of replication errors.
+    Detects failed replication attempts using repadmin.
+    No WMI/RPC or remote event log access required.
+    Works over standard AD ports only (389/88).
+
+    Checks:
+    - repadmin /showrepl for failed replication links
+    - repadmin /replsummary for overall failure counts
+    - Consecutive replication failures per DC pair
 
 .PARAMETER Inventory
     Discovered AD inventory object
@@ -14,6 +20,8 @@
     Category: Replication
     Severity: Critical
     Compatible: Windows Server 2012 R2+
+
+    Approach: repadmin (no WMI/RPC required)
 #>
 
 [CmdletBinding()]
@@ -25,128 +33,126 @@ param(
 $ErrorActionPreference = 'Continue'
 $results = @()
 
-# Event IDs for replication failures
-$replFailureEvents = @(
-    1085,  # Replication failed
-    1308,  # Replication error
-    2087   # DNS lookup failure
-)
-
-# Check last 7 days
-$startTime = (Get-Date).AddDays(-7)
-
-Write-Verbose "[REP-007] Starting failed replication attempts check..."
+Write-Verbose "[REP-007] Starting failed replication check (repadmin)..."
 
 try {
     $domainControllers = $Inventory.DomainControllers | Where-Object { $_.IsReachable }
-    
+
     if (-not $domainControllers) {
         Write-Warning "[REP-007] No reachable DCs"
         return @()
     }
-    
+
     foreach ($dc in $domainControllers) {
         Write-Verbose "[REP-007] Checking replication failures on: $($dc.Name)"
-        
+
+        $failureCount   = 0
+        $uniqueSources  = 0
+        $breakdown      = ''
+
         try {
-            # Get replication failure events
-            $events = Get-WinEvent -ComputerName $dc.HostName -FilterHashtable @{
-                LogName = 'Directory Service'
-                Id = $replFailureEvents
-                StartTime = $startTime
-            } -ErrorAction SilentlyContinue
-            
-            $failureCount = if ($events) { $events.Count } else { 0 }
-            
-            # Group by event ID
-            $eventBreakdown = @{}
-            if ($events) {
-                $events | Group-Object Id | ForEach-Object {
-                    $eventBreakdown[$_.Name] = $_.Count
-                }
-            }
-            
-            # Get unique source DCs
-            $sourceDCs = @()
-            if ($events) {
-                $events | ForEach-Object {
-                    if ($_.Message -match "CN=NTDS Settings,CN=([^,]+)") {
-                        $sourceDCs += $matches[1]
+            # -----------------------------------------------------------------------
+            # repadmin /showrepl /csv - parse for failed replication links
+            # CSV columns: Destination DSA,Naming Context,Source DSA,
+            #              Transport Type,Number of Failures,Last Failure Time,
+            #              Last Success Time,Last Failure Status
+            # -----------------------------------------------------------------------
+            $replCSV = & repadmin /showrepl $dc.Name /csv 2>&1 |
+                Where-Object { $_ -match '^\w' -and $_ -notmatch '^Destination' }
+
+            $failedLinks  = @()
+            $sourceDCList = @()
+
+            foreach ($line in $replCSV) {
+                $fields = $line -split ','
+                if ($fields.Count -ge 6) {
+                    $numFailures = 0
+                    if ([int]::TryParse($fields[4].Trim(), [ref]$numFailures) -and $numFailures -gt 0) {
+                        $failedLinks  += $line
+                        $sourceDCList += $fields[2].Trim()
+                        $failureCount += $numFailures
                     }
                 }
             }
-            $uniqueSources = ($sourceDCs | Select-Object -Unique).Count
-            
-            # Determine status
+
+            $uniqueSources = @($sourceDCList | Select-Object -Unique).Count
+            $breakdown     = if ($failedLinks.Count -gt 0) {
+                ($failedLinks | Select-Object -First 5 | ForEach-Object {
+                    $f = $_ -split ','
+                    "Source:$($f[2].Trim()) Failures:$($f[4].Trim())"
+                }) -join "; "
+            } else { "None" }
+
+            Write-Verbose "[REP-007] $($dc.Name): $failureCount total failures across $uniqueSources source(s)"
+
+            # -----------------------------------------------------------------------
+            # Determine severity
+            # -----------------------------------------------------------------------
             $hasIssue = $failureCount -gt 0
-            $severity = if ($failureCount -gt 100) { 'Critical' }
-                       elseif ($failureCount -gt 20) { 'High' }
-                       elseif ($failureCount -gt 0) { 'Medium' }
-                       else { 'Info' }
-            
+            $severity = if ($failureCount -gt 100)    { 'Critical' }
+                        elseif ($failureCount -gt 20)  { 'High' }
+                        elseif ($failureCount -gt 0)   { 'Medium' }
+                        else                           { 'Info' }
+
             $result = [PSCustomObject]@{
                 DomainController = $dc.Name
-                FailureCount = $failureCount
-                UniqueSources = $uniqueSources
-                EventBreakdown = ($eventBreakdown.GetEnumerator() | ForEach-Object { "$($_.Key):$($_.Value)" }) -join ", "
-                Period = "Last 7 days"
-                Severity = $severity
-                Status = if ($failureCount -gt 20) { 'Failed' }
-                        elseif ($failureCount -gt 0) { 'Warning' }
-                        else { 'Healthy' }
-                IsHealthy = -not $hasIssue
-                HasIssue = $hasIssue
-                Message = if ($failureCount -gt 100) {
-                    "CRITICAL: $failureCount replication failures in last 7 days!"
-                }
-                elseif ($failureCount -gt 20) {
-                    "WARNING: $failureCount replication failures in last 7 days"
-                }
-                elseif ($failureCount -gt 0) {
-                    "$failureCount replication failures detected"
-                }
-                else {
-                    "No replication failures in last 7 days"
+                FailureCount     = $failureCount
+                UniqueSources    = $uniqueSources
+                EventBreakdown   = $breakdown
+                Period           = "Current repadmin state"
+                Severity         = $severity
+                Status           = if ($failureCount -gt 20)  { 'Failed' }
+                                   elseif ($failureCount -gt 0) { 'Warning' }
+                                   else                         { 'Healthy' }
+                IsHealthy        = -not $hasIssue
+                HasIssue         = $hasIssue
+                Message          = if ($failureCount -gt 100) {
+                    "CRITICAL: $failureCount replication failures detected on $($dc.Name)!"
+                } elseif ($failureCount -gt 20) {
+                    "WARNING: $failureCount replication failures detected on $($dc.Name)"
+                } elseif ($failureCount -gt 0) {
+                    "$failureCount replication failure(s) detected on $($dc.Name)"
+                } else {
+                    "No replication failures detected on $($dc.Name)"
                 }
             }
-            
+
             $results += $result
         }
         catch {
-            Write-Warning "[REP-007] Failed to check events on $($dc.Name): $_"
-            
+            Write-Warning "[REP-007] Failed to check events on $($dc.Name): $($_.Exception.Message)"
+
             $results += [PSCustomObject]@{
                 DomainController = $dc.Name
-                FailureCount = 0
-                UniqueSources = 0
-                EventBreakdown = "Unknown"
-                Period = "Last 7 days"
-                Severity = 'Error'
-                Status = 'Error'
-                IsHealthy = $false
-                HasIssue = $true
-                Message = "Failed to query events: $_"
+                FailureCount     = 0
+                UniqueSources    = 0
+                EventBreakdown   = "Unknown"
+                Period           = "Current repadmin state"
+                Severity         = 'Error'
+                Status           = 'Error'
+                IsHealthy        = $false
+                HasIssue         = $true
+                Message          = "Failed to query replication status: $($_.Exception.Message)"
             }
         }
     }
-    
+
     Write-Verbose "[REP-007] Check complete. DCs checked: $($results.Count)"
-    
     return $results
 }
 catch {
-    Write-Error "[REP-007] Check failed: $_"
-    
+    Write-Error "[REP-007] Check failed: $($_.Exception.Message)"
+
     return @([PSCustomObject]@{
         DomainController = "Unknown"
-        FailureCount = 0
-        UniqueSources = 0
-        EventBreakdown = "Unknown"
-        Period = "Last 7 days"
-        Severity = 'Error'
-        Status = 'Error'
-        IsHealthy = $false
-        HasIssue = $true
-        Message = "Check execution failed: $_"
+        FailureCount     = 0
+        UniqueSources    = 0
+        EventBreakdown   = "Unknown"
+        Period           = "Current repadmin state"
+        Severity         = 'Error'
+        Status           = 'Error'
+        IsHealthy        = $false
+        HasIssue         = $true
+        Message          = "Check execution failed: $($_.Exception.Message)"
     })
 }

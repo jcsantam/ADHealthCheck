@@ -222,8 +222,8 @@ function Invoke-CheckExecution {
             try { $job.PS.Dispose() } catch { }
         }
 
-        $status = if ($timedOut -or $null -ne $errMessage) { 'Error' } else { 'Completed' }
-        if ($null -ne $rawOutput) { $status = 'Completed' }
+        $status = if ($timedOut) { 'Error' } else { 'Completed' }
+                if ($null -ne $rawOutput) { $status = 'Completed' }
 
         $results += [PSCustomObject]@{
             CheckId         = $job.CheckId
