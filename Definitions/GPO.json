@@ -145,6 +145,33 @@
       ],
       "IsEnabled": true,
       "Version": "2.0"
+    },
+    {
+      "CheckId": "GPO-005",
+      "CheckName": "WMI Filter Validation",
+      "Category": "GPO",
+      "Severity": "Low",
+      "ScriptPath": "Test-WMIFilters.ps1",
+      "PassMessage": "All WMI filters are valid and linked to active GPOs",
+      "FailMessage": "WMI filter issues detected",
+      "EvaluationRules": [
+        {
+          "RuleId": "GPO-005-ORPHANED",
+          "Condition": "Any(OrphanedWMIFilters > 0)",
+          "Status": "Warning",
+          "Severity": "low",
+          "Message": "Orphaned WMI filters detected - not linked to any GPO (cleanup candidates)"
+        },
+        {
+          "RuleId": "GPO-005-HASISSUE",
+          "Condition": "Any(HasIssue == true)",
+          "Status": "Warning",
+          "Severity": "low",
+          "Message": "WMI filter issue detected"
+        }
+      ],
+      "IsEnabled": true,
+      "Version": "2.0"
     }
   ]
 }

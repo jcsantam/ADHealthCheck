@@ -249,6 +249,60 @@
       ],
       "IsEnabled": true,
       "Version": "2.0"
+    },
+    {
+      "CheckId": "SEC-008",
+      "CheckName": "Delegation Configuration",
+      "Category": "Security",
+      "Severity": "Critical",
+      "ScriptPath": "Test-DelegationConfig.ps1",
+      "PassMessage": "No accounts with unconstrained delegation detected",
+      "FailMessage": "Accounts with unconstrained Kerberos delegation detected",
+      "EvaluationRules": [
+        {
+          "RuleId": "SEC-008-UNCONSTRAINED-USERS",
+          "Condition": "Any(UnconstrainedUserCount > 0)",
+          "Status": "Fail",
+          "Severity": "critical",
+          "Message": "User accounts with unconstrained Kerberos delegation detected - impersonation risk"
+        },
+        {
+          "RuleId": "SEC-008-UNCONSTRAINED-COMPUTERS",
+          "Condition": "Any(UnconstrainedComputerCount > 0)",
+          "Status": "Warning",
+          "Severity": "high",
+          "Message": "Computer accounts with unconstrained Kerberos delegation detected"
+        },
+        {
+          "RuleId": "SEC-008-HASISSUE",
+          "Condition": "Any(HasIssue == true)",
+          "Status": "Fail",
+          "Severity": "high",
+          "Message": "Unconstrained delegation configuration issue detected"
+        }
+      ],
+      "IsEnabled": true,
+      "Version": "2.0"
+    },
+    {
+      "CheckId": "SEC-009",
+      "CheckName": "Kerberos Policy",
+      "Category": "Security",
+      "Severity": "Medium",
+      "ScriptPath": "Test-KerberosPolicy.ps1",
+      "PassMessage": "Kerberos ticket policy meets security requirements",
+      "FailMessage": "Kerberos policy configuration issues detected",
+      "EvaluationRules": [
+        {
+          "RuleId": "SEC-009-HASISSUE",
+          "Condition": "Any(HasIssue == true)",
+          "Status": "Warning",
+          "Severity": "medium",
+          "Message": "Kerberos ticket policy deviates from security recommendations"
+        }
+      ],
+      "IsEnabled": true,
+      "Version": "2.0"
     }
   ]
 }

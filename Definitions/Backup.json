@@ -113,6 +113,40 @@
       ],
       "IsEnabled": true,
       "Version": "2.0"
+    },
+    {
+      "CheckId": "BACKUP-004",
+      "CheckName": "Deleted Object Lifetime",
+      "Category": "Backup",
+      "Severity": "High",
+      "ScriptPath": "Test-DeletedObjectLifetime.ps1",
+      "PassMessage": "Tombstone lifetime meets Microsoft recommendations",
+      "FailMessage": "Tombstone lifetime is below recommended minimum",
+      "EvaluationRules": [
+        {
+          "RuleId": "BACKUP-004-CRITICAL-TOMBSTONE",
+          "Condition": "Any(TombstoneLifetimeDays < 60)",
+          "Status": "Fail",
+          "Severity": "critical",
+          "Message": "Tombstone lifetime is critically low - DC restoration from backup may fail"
+        },
+        {
+          "RuleId": "BACKUP-004-WARN-TOMBSTONE",
+          "Condition": "Any(TombstoneLifetimeDays < 180)",
+          "Status": "Warning",
+          "Severity": "high",
+          "Message": "Tombstone lifetime is below the Microsoft-recommended 180 days"
+        },
+        {
+          "RuleId": "BACKUP-004-HASISSUE",
+          "Condition": "Any(HasIssue == true)",
+          "Status": "Warning",
+          "Severity": "high",
+          "Message": "Deleted object lifetime issue detected"
+        }
+      ],
+      "IsEnabled": true,
+      "Version": "2.0"
     }
   ]
 }

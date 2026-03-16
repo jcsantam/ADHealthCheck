@@ -126,6 +126,40 @@
       ],
       "IsEnabled": true,
       "Version": "2.0"
+    },
+    {
+      "CheckId": "DB-004",
+      "CheckName": "White Space Analysis",
+      "Category": "Database",
+      "Severity": "Medium",
+      "ScriptPath": "Test-WhiteSpaceAnalysis.ps1",
+      "PassMessage": "NTDS database log files are within normal limits on all DCs",
+      "FailMessage": "NTDS database log file accumulation detected",
+      "EvaluationRules": [
+        {
+          "RuleId": "DB-004-CRITICAL-LOGS",
+          "Condition": "Any(LogFileCount > 1000)",
+          "Status": "Fail",
+          "Severity": "critical",
+          "Message": "Critical number of NTDS transaction logs - replication or backup is likely broken"
+        },
+        {
+          "RuleId": "DB-004-WARN-LOGS",
+          "Condition": "Any(LogFileCount > 200)",
+          "Status": "Warning",
+          "Severity": "high",
+          "Message": "Elevated NTDS transaction log count - check replication and backup"
+        },
+        {
+          "RuleId": "DB-004-HASISSUE",
+          "Condition": "Any(HasIssue == true)",
+          "Status": "Warning",
+          "Severity": "medium",
+          "Message": "NTDS database white space analysis issue detected"
+        }
+      ],
+      "IsEnabled": true,
+      "Version": "2.0"
     }
   ]
 }

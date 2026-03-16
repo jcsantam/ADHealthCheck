@@ -185,6 +185,33 @@
       ],
       "IsEnabled": true,
       "Version": "2.0"
+    },
+    {
+      "CheckId": "DNS-007",
+      "CheckName": "Dynamic Update Security",
+      "Category": "DNS",
+      "Severity": "High",
+      "ScriptPath": "Test-DynamicUpdateSecurity.ps1",
+      "PassMessage": "All AD-integrated DNS zones use secure dynamic updates",
+      "FailMessage": "Insecure DNS dynamic update settings detected",
+      "EvaluationRules": [
+        {
+          "RuleId": "DNS-007-INSECURE-ZONES",
+          "Condition": "Any(IsSecure == false)",
+          "Status": "Fail",
+          "Severity": "high",
+          "Message": "AD-integrated DNS zone allows non-secure dynamic updates - unauthorized DNS records possible"
+        },
+        {
+          "RuleId": "DNS-007-HASISSUE",
+          "Condition": "Any(HasIssue == true)",
+          "Status": "Warning",
+          "Severity": "medium",
+          "Message": "DNS dynamic update security issue detected"
+        }
+      ],
+      "IsEnabled": true,
+      "Version": "2.0"
     }
   ]
 }

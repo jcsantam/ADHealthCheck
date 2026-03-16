@@ -311,6 +311,134 @@
       ],
       "IsEnabled": true,
       "Version": "2.0"
+    },
+    {
+      "CheckId": "REP-011",
+      "CheckName": "KCC Errors",
+      "Category": "Replication",
+      "Severity": "High",
+      "ScriptPath": "Test-KCCErrors.ps1",
+      "PassMessage": "No KCC errors detected on any domain controller",
+      "FailMessage": "KCC errors detected in Directory Service event log",
+      "EvaluationRules": [
+        {
+          "RuleId": "REP-011-CRITICAL-KCC",
+          "Condition": "Any(KCCErrorCount > 10)",
+          "Status": "Fail",
+          "Severity": "critical",
+          "Message": "Critical number of KCC errors - replication topology cannot be maintained"
+        },
+        {
+          "RuleId": "REP-011-WARN-KCC",
+          "Condition": "Any(KCCErrorCount > 0)",
+          "Status": "Warning",
+          "Severity": "high",
+          "Message": "KCC errors detected - replication topology may be affected"
+        },
+        {
+          "RuleId": "REP-011-HASISSUE",
+          "Condition": "Any(HasIssue == true)",
+          "Status": "Warning",
+          "Severity": "high",
+          "Message": "KCC error issue detected"
+        }
+      ],
+      "IsEnabled": true,
+      "Version": "2.0"
+    },
+    {
+      "CheckId": "REP-012",
+      "CheckName": "Site Link Topology",
+      "Category": "Replication",
+      "Severity": "High",
+      "ScriptPath": "Test-SiteLinkTopology.ps1",
+      "PassMessage": "AD site link topology is properly configured",
+      "FailMessage": "Site link topology issues detected",
+      "EvaluationRules": [
+        {
+          "RuleId": "REP-012-HIGH-INTERVAL",
+          "Condition": "Any(ReplicationInterval > 180)",
+          "Status": "Fail",
+          "Severity": "high",
+          "Message": "Site link replication interval exceeds 180 minutes - replication may be too infrequent"
+        },
+        {
+          "RuleId": "REP-012-HASISSUE",
+          "Condition": "Any(HasIssue == true)",
+          "Status": "Warning",
+          "Severity": "medium",
+          "Message": "Site link topology issue detected"
+        }
+      ],
+      "IsEnabled": true,
+      "Version": "2.0"
+    },
+    {
+      "CheckId": "REP-013",
+      "CheckName": "Bridgehead Server Health",
+      "Category": "Replication",
+      "Severity": "Medium",
+      "ScriptPath": "Test-BridgeheadServer.ps1",
+      "PassMessage": "Bridgehead server configuration is healthy",
+      "FailMessage": "Bridgehead server issues detected",
+      "EvaluationRules": [
+        {
+          "RuleId": "REP-013-HASISSUE",
+          "Condition": "Any(HasIssue == true)",
+          "Status": "Warning",
+          "Severity": "medium",
+          "Message": "Preferred bridgehead server is unreachable - inter-site replication may be affected"
+        }
+      ],
+      "IsEnabled": true,
+      "Version": "2.0"
+    },
+    {
+      "CheckId": "REP-014",
+      "CheckName": "Replication Schedule Conflicts",
+      "Category": "Replication",
+      "Severity": "Medium",
+      "ScriptPath": "Test-ReplicationScheduleConflicts.ps1",
+      "PassMessage": "No replication schedule conflicts detected",
+      "FailMessage": "Replication schedule restrictions detected",
+      "EvaluationRules": [
+        {
+          "RuleId": "REP-014-HASISSUE",
+          "Condition": "Any(HasIssue == true)",
+          "Status": "Warning",
+          "Severity": "medium",
+          "Message": "Site link schedule heavily restricts replication windows (less than 50% availability)"
+        }
+      ],
+      "IsEnabled": true,
+      "Version": "2.0"
+    },
+    {
+      "CheckId": "REP-015",
+      "CheckName": "Naming Context Validation",
+      "Category": "Replication",
+      "Severity": "High",
+      "ScriptPath": "Test-NamingContextValidation.ps1",
+      "PassMessage": "All domain controllers have the expected naming contexts",
+      "FailMessage": "Naming context issues detected on domain controllers",
+      "EvaluationRules": [
+        {
+          "RuleId": "REP-015-MISSING-NCS",
+          "Condition": "Any(MissingNCCount > 0)",
+          "Status": "Fail",
+          "Severity": "high",
+          "Message": "Domain controller is missing one or more expected naming contexts"
+        },
+        {
+          "RuleId": "REP-015-HASISSUE",
+          "Condition": "Any(HasIssue == true)",
+          "Status": "Fail",
+          "Severity": "high",
+          "Message": "Naming context validation issue detected"
+        }
+      ],
+      "IsEnabled": true,
+      "Version": "2.0"
     }
   ]
 }

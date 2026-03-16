@@ -338,6 +338,101 @@
       ],
       "IsEnabled": true,
       "Version": "2.0"
+    },
+    {
+      "CheckId": "DC-011",
+      "CheckName": "Event Log Critical Errors",
+      "Category": "DCHealth",
+      "Severity": "High",
+      "ScriptPath": "Test-EventLogCriticalErrors.ps1",
+      "PassMessage": "System event logs show no excessive errors on domain controllers",
+      "FailMessage": "Elevated error counts detected in System event log",
+      "EvaluationRules": [
+        {
+          "RuleId": "DC-011-CRITICAL-EVENTS",
+          "Condition": "Any(CriticalCount > 0)",
+          "Status": "Fail",
+          "Severity": "critical",
+          "Message": "Critical-level events found in System event log in last 24 hours"
+        },
+        {
+          "RuleId": "DC-011-HIGH-ERROR-COUNT",
+          "Condition": "Any(SystemErrorCount > 50)",
+          "Status": "Fail",
+          "Severity": "high",
+          "Message": "More than 50 error events in System event log in last 24 hours"
+        },
+        {
+          "RuleId": "DC-011-WARN-ERROR-COUNT",
+          "Condition": "Any(SystemErrorCount > 20)",
+          "Status": "Warning",
+          "Severity": "medium",
+          "Message": "More than 20 error events in System event log in last 24 hours"
+        },
+        {
+          "RuleId": "DC-011-HASISSUE",
+          "Condition": "Any(HasIssue == true)",
+          "Status": "Warning",
+          "Severity": "high",
+          "Message": "Event log error count issue detected on domain controller"
+        }
+      ],
+      "IsEnabled": true,
+      "Version": "2.0"
+    },
+    {
+      "CheckId": "DC-012",
+      "CheckName": "Network Adapter Status",
+      "Category": "DCHealth",
+      "Severity": "High",
+      "ScriptPath": "Test-NetworkAdapterStatus.ps1",
+      "PassMessage": "All network adapters are connected on domain controllers",
+      "FailMessage": "Network adapter connectivity issues detected on domain controller",
+      "EvaluationRules": [
+        {
+          "RuleId": "DC-012-HASISSUE",
+          "Condition": "Any(HasIssue == true)",
+          "Status": "Fail",
+          "Severity": "high",
+          "Message": "A physical network adapter is not connected on a domain controller"
+        }
+      ],
+      "IsEnabled": true,
+      "Version": "2.0"
+    },
+    {
+      "CheckId": "DC-013",
+      "CheckName": "LSASS Memory Usage",
+      "Category": "DCHealth",
+      "Severity": "Medium",
+      "ScriptPath": "Test-LSASSMemory.ps1",
+      "PassMessage": "LSASS memory usage is within normal limits on all DCs",
+      "FailMessage": "High LSASS memory usage detected on domain controller",
+      "EvaluationRules": [
+        {
+          "RuleId": "DC-013-CRITICAL-MEM",
+          "Condition": "Any(LsassMemoryGB > 2)",
+          "Status": "Fail",
+          "Severity": "high",
+          "Message": "LSASS is using more than 2 GB of memory - possible memory leak"
+        },
+        {
+          "RuleId": "DC-013-WARN-MEM",
+          "Condition": "Any(LsassMemoryGB > 1)",
+          "Status": "Warning",
+          "Severity": "medium",
+          "Message": "LSASS memory usage exceeds 1 GB - monitor for memory leak"
+        },
+        {
+          "RuleId": "DC-013-HASISSUE",
+          "Condition": "Any(HasIssue == true)",
+          "Status": "Warning",
+          "Severity": "medium",
+          "Message": "LSASS memory usage issue detected"
+        }
+      ],
+      "IsEnabled": true,
+      "Version": "2.0"
     }
   ]
 }
