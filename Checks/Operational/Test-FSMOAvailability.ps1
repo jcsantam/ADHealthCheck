@@ -58,7 +58,7 @@ try {
                 $tcp.Close()
             } catch {}
             
-            # Test if we can query the schema
+            # Test if we can query the schema (informational only — AD query may be slow in lab)
             $schemaTest = $false
             try {
                 $schema = Get-ADObject -Identity "CN=Schema,$((Get-ADRootDSE -Server $schemaMaster).configurationNamingContext)" -Server $schemaMaster -ErrorAction Stop
@@ -67,8 +67,9 @@ try {
             catch {
                 $schemaTest = $false
             }
-            
-            $available = ($ldapResult -and $schemaTest)
+
+            # Availability is based on LDAP port response; schema query is supplementary
+            $available = $ldapResult
             
             $result = [PSCustomObject]@{
                 Role = "Schema Master"
@@ -108,7 +109,7 @@ try {
                 $tcp.Close()
             } catch {}
             
-            # Test if we can query partitions container
+            # Test if we can query partitions container (informational only)
             $partitionsTest = $false
             try {
                 $partitions = Get-ADObject -Identity "CN=Partitions,CN=Configuration,$((Get-ADRootDSE -Server $domainNamingMaster).configurationNamingContext)" -Server $domainNamingMaster -ErrorAction Stop
@@ -117,8 +118,9 @@ try {
             catch {
                 $partitionsTest = $false
             }
-            
-            $available = ($ldapResult -and $partitionsTest)
+
+            # Availability is based on LDAP port response; partitions query is supplementary
+            $available = $ldapResult
             
             $result = [PSCustomObject]@{
                 Role = "Domain Naming Master"

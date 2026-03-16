@@ -68,7 +68,7 @@ try {
         $results += $result
         
         # Domain Naming Master
-        $domainNamingMaster = $forestInfo.DomainNamingMaster
+        $domainNamingMaster = $forestInfo.NamingMaster
         $domainNamingDC = $Inventory.DomainControllers | Where-Object { $_.Name -eq $domainNamingMaster }
         
         $result = [PSCustomObject]@{

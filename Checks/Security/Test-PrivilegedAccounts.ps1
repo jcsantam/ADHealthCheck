@@ -170,6 +170,7 @@ try {
             
             # Check AdminSDHolder object itself
             try {
+                $domainDN = 'DC=' + ($domain.Name -replace '\.', ',DC=')
                 $adminSDHolder = Get-ADObject -Filter "Name -eq 'AdminSDHolder'" `
                     -SearchBase "CN=System,$domainDN" `
                     -Properties whenChanged `
