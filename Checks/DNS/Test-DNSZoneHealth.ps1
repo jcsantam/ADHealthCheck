@@ -66,7 +66,9 @@ try {
             $severity = 'Info'
             
             # Check if dynamic updates are enabled
-            if ($zone.DynamicUpdate -eq 'None') {
+            # Exclude TrustAnchors - DNSSEC system zone that legitimately has DynamicUpdate=None
+            $systemZones = @('TrustAnchors', '0.in-addr.arpa', '127.in-addr.arpa', '255.in-addr.arpa')
+            if ($zone.DynamicUpdate -eq 'None' -and $zone.ZoneName -notin $systemZones) {
                 $isHealthy = $false
                 $issues += "Dynamic updates are disabled"
                 $severity = 'Medium'
