@@ -62,7 +62,7 @@ try {
 
             # Get database file size via WMI CIM_DataFile
             # Convert path for WMI: backslashes must be doubled
-            $wmiDbPath = $dbPath -replace '\\', '\\'
+            $wmiDbPath = $dbPath.Replace('\', '\\')
             $dbFile    = Get-WmiObject -Query "SELECT FileSize FROM CIM_DataFile WHERE Name='$wmiDbPath'" `
                 -ComputerName $dc.Name -ErrorAction SilentlyContinue |
                 Select-Object -First 1
@@ -71,18 +71,14 @@ try {
             $dbSizeGB    = [math]::Round($dbSizeBytes / 1GB, 2)
 
             # Count transaction log files in the log directory
-            # Escape path for WMI - backslashes doubled, colon kept
-            $wmiLogPath = ($logPath.TrimEnd('\')) -replace '\\', '\\'
-            $logFiles   = @(Get-WmiObject -Query "SELECT Name,FileSize FROM CIM_DataFile WHERE Drive='$($logPath.Substring(0,2))' AND Path='$($logPath.Substring(2).TrimEnd('\') -replace '\\', '\\' + '\\')' AND Extension='log' AND FileName LIKE 'edb%'" `
+            # Pre-build WMI path components using .Replace() to avoid inline -replace parse errors
+            $logDrive = $logPath.Substring(0, 2)
+            $logDir   = ('\' + $logPath.Substring(3).TrimEnd('\') + '\').Replace('\', '\\')
+            $logFiles = @(Get-WmiObject -Query "SELECT Name,FileSize FROM CIM_DataFile WHERE Drive='$logDrive' AND Path='$logDir' AND Extension='log' AND FileName LIKE 'edb%'" `
                 -ComputerName $dc.Name -ErrorAction SilentlyContinue)
 
-            # Simpler approach: count log files via WMI directory query
             if (@($logFiles).Count -eq 0) {
-                # Try alternative query using the log directory path
-                $logDrive = $logPath.Substring(0, 2)
-                $logDir   = '\' + $logPath.Substring(3).TrimEnd('\') + '\'
-                $logDir   = $logDir -replace '\\', '\\'
-                $logFiles = @(Get-WmiObject -Query "SELECT Name FROM CIM_DataFile WHERE Drive='$logDrive' AND Path='$logDir' AND Extension='log'" `
+                $logFiles = @(Get-WmiObject -Query "SELECT Name,FileSize FROM CIM_DataFile WHERE Drive='$logDrive' AND Path='$logDir' AND Extension='log'" `
                     -ComputerName $dc.Name -ErrorAction SilentlyContinue |
                     Where-Object { $_.Name -match '\\edb[0-9A-Fa-f]+\.log$|\\edb\.log$|\\edbtmp\.log$' })
             }
