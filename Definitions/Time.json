@@ -65,6 +65,236 @@
       ],
       "IsEnabled": true,
       "Version": "2.0"
+    },
+    {
+      "CheckId": "TIME-003",
+      "CheckName": "NTP Server Reachability",
+      "Category": "Time",
+      "Severity": "High",
+      "ScriptPath": "Test-NTPReachability.ps1",
+      "PassMessage": "All configured NTP servers are reachable",
+      "FailMessage": "One or more NTP servers are unreachable",
+      "EvaluationRules": [
+        {
+          "RuleId": "TIME-003-UNREACHABLE",
+          "Condition": "Any(HasIssue == true)",
+          "Status": "Fail",
+          "Severity": "high",
+          "Message": "One or more configured NTP servers are unreachable on UDP port 123"
+        }
+      ],
+      "IsEnabled": true,
+      "Version": "2.0"
+    },
+    {
+      "CheckId": "TIME-004",
+      "CheckName": "Time Provider Configuration",
+      "Category": "Time",
+      "Severity": "High",
+      "ScriptPath": "Test-TimeProviderConfig.ps1",
+      "PassMessage": "All DCs have correct W32Time provider configuration",
+      "FailMessage": "Incorrect W32Time provider configuration detected",
+      "EvaluationRules": [
+        {
+          "RuleId": "TIME-004-WRONG-CONFIG",
+          "Condition": "Any(IsCorrectType == false)",
+          "Status": "Fail",
+          "Severity": "high",
+          "Message": "One or more DCs have incorrect W32Time Type configuration (PDC should be NTP, others NT5DS)"
+        },
+        {
+          "RuleId": "TIME-004-HASISSUE",
+          "Condition": "Any(HasIssue == true)",
+          "Status": "Fail",
+          "Severity": "high",
+          "Message": "W32Time provider configuration issue detected"
+        }
+      ],
+      "IsEnabled": true,
+      "Version": "2.0"
+    },
+    {
+      "CheckId": "TIME-005",
+      "CheckName": "W32Time Service Startup",
+      "Category": "Time",
+      "Severity": "Critical",
+      "ScriptPath": "Test-W32TimeService.ps1",
+      "PassMessage": "W32Time service is running and set to Auto on all DCs",
+      "FailMessage": "W32Time service issues detected on one or more DCs",
+      "EvaluationRules": [
+        {
+          "RuleId": "TIME-005-NOT-RUNNING",
+          "Condition": "Any(IsRunning == false)",
+          "Status": "Fail",
+          "Severity": "critical",
+          "Message": "W32Time service is not running on one or more DCs"
+        },
+        {
+          "RuleId": "TIME-005-NOT-AUTO",
+          "Condition": "Any(IsAutoStart == false)",
+          "Status": "Warning",
+          "Severity": "high",
+          "Message": "W32Time service is not set to automatic startup on one or more DCs"
+        },
+        {
+          "RuleId": "TIME-005-HASISSUE",
+          "Condition": "Any(HasIssue == true)",
+          "Status": "Warning",
+          "Severity": "high",
+          "Message": "W32Time service issue detected"
+        }
+      ],
+      "IsEnabled": true,
+      "Version": "2.0"
+    },
+    {
+      "CheckId": "TIME-006",
+      "CheckName": "Stratum Level",
+      "Category": "Time",
+      "Severity": "Critical",
+      "ScriptPath": "Test-StratumLevel.ps1",
+      "PassMessage": "All DCs have acceptable NTP stratum levels",
+      "FailMessage": "NTP stratum level issues detected on one or more DCs",
+      "EvaluationRules": [
+        {
+          "RuleId": "TIME-006-STRATUM16",
+          "Condition": "Any(IsStratum16 == true)",
+          "Status": "Fail",
+          "Severity": "critical",
+          "Message": "One or more DCs have stratum 16 - clock is unsynchronized"
+        },
+        {
+          "RuleId": "TIME-006-HASISSUE",
+          "Condition": "Any(HasIssue == true)",
+          "Status": "Warning",
+          "Severity": "high",
+          "Message": "Stratum level issue detected on one or more DCs"
+        }
+      ],
+      "IsEnabled": true,
+      "Version": "2.0"
+    },
+    {
+      "CheckId": "TIME-007",
+      "CheckName": "Poll Interval",
+      "Category": "Time",
+      "Severity": "Medium",
+      "ScriptPath": "Test-PollInterval.ps1",
+      "PassMessage": "NTP poll interval is configured within acceptable limits on all PDC Emulators",
+      "FailMessage": "NTP poll interval is too long on one or more PDC Emulators",
+      "EvaluationRules": [
+        {
+          "RuleId": "TIME-007-POLL-TOO-LONG",
+          "Condition": "Any(SpecialPollInterval > 86400)",
+          "Status": "Fail",
+          "Severity": "high",
+          "Message": "PDC SpecialPollInterval exceeds 1 day - time corrections are too infrequent"
+        },
+        {
+          "RuleId": "TIME-007-POLL-WARN",
+          "Condition": "Any(SpecialPollInterval > 3600)",
+          "Status": "Warning",
+          "Severity": "medium",
+          "Message": "PDC SpecialPollInterval exceeds 1 hour - consider reducing for more frequent sync"
+        },
+        {
+          "RuleId": "TIME-007-HASISSUE",
+          "Condition": "Any(HasIssue == true)",
+          "Status": "Warning",
+          "Severity": "medium",
+          "Message": "Poll interval issue detected"
+        }
+      ],
+      "IsEnabled": true,
+      "Version": "2.0"
+    },
+    {
+      "CheckId": "TIME-008",
+      "CheckName": "Time Correction Rate",
+      "Category": "Time",
+      "Severity": "High",
+      "ScriptPath": "Test-TimeCorrectionRate.ps1",
+      "PassMessage": "Phase offsets are within acceptable limits on all DCs",
+      "FailMessage": "Excessive phase offset detected on one or more DCs",
+      "EvaluationRules": [
+        {
+          "RuleId": "TIME-008-CRITICAL-OFFSET",
+          "Condition": "Any(PhaseOffsetSeconds > 60)",
+          "Status": "Fail",
+          "Severity": "high",
+          "Message": "DC phase offset exceeds 60 seconds - Kerberos authentication may fail"
+        },
+        {
+          "RuleId": "TIME-008-WARN-OFFSET",
+          "Condition": "Any(PhaseOffsetSeconds > 1)",
+          "Status": "Warning",
+          "Severity": "medium",
+          "Message": "DC phase offset exceeds 1 second - monitor for further drift"
+        },
+        {
+          "RuleId": "TIME-008-HASISSUE",
+          "Condition": "Any(HasIssue == true)",
+          "Status": "Warning",
+          "Severity": "medium",
+          "Message": "Phase offset issue detected"
+        }
+      ],
+      "IsEnabled": true,
+      "Version": "2.0"
+    },
+    {
+      "CheckId": "TIME-009",
+      "CheckName": "Time Zone Consistency",
+      "Category": "Time",
+      "Severity": "High",
+      "ScriptPath": "Test-TimeZoneConsistency.ps1",
+      "PassMessage": "All DCs have consistent time zone configuration",
+      "FailMessage": "Time zone inconsistency detected across domain controllers",
+      "EvaluationRules": [
+        {
+          "RuleId": "TIME-009-INCONSISTENT",
+          "Condition": "Any(Status == 'Fail')",
+          "Status": "Fail",
+          "Severity": "high",
+          "Message": "DCs have inconsistent time zones - log correlation issues may occur"
+        },
+        {
+          "RuleId": "TIME-009-NOT-UTC",
+          "Condition": "Any(IsUTC == false)",
+          "Status": "Warning",
+          "Severity": "low",
+          "Message": "One or more DCs are not configured for UTC - UTC is recommended for domain controllers"
+        }
+      ],
+      "IsEnabled": true,
+      "Version": "2.0"
+    },
+    {
+      "CheckId": "TIME-010",
+      "CheckName": "Daylight Saving Time Configuration",
+      "Category": "Time",
+      "Severity": "Medium",
+      "ScriptPath": "Test-DSTConfiguration.ps1",
+      "PassMessage": "DST configuration is consistent across all DCs",
+      "FailMessage": "Inconsistent DST configuration detected across domain controllers",
+      "EvaluationRules": [
+        {
+          "RuleId": "TIME-010-INCONSISTENT-DST",
+          "Condition": "Any(Status == 'Fail')",
+          "Status": "Fail",
+          "Severity": "medium",
+          "Message": "DCs have inconsistent DST settings - some DCs observe DST and others do not"
+        },
+        {
+          "RuleId": "TIME-010-HAS-DST",
+          "Condition": "Any(HasDST == true)",
+          "Status": "Warning",
+          "Severity": "low",
+          "Message": "One or more DCs observe DST - UTC with no DST is recommended to prevent time jumps"
+        }
+      ],
+      "IsEnabled": true,
+      "Version": "2.0"
     }
   ]
 }
