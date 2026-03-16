@@ -8,7 +8,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **AD Health Check** is a PowerShell 5.1 enterprise tool that replicates and exceeds Microsoft's ADST 5.8 (~635 health checks) for Active Directory infrastructure monitoring. It targets L3-grade diagnostics: maximum visibility, actionable output, compatibility from Windows Server 2012 R2 through 2025.
 
-Current state: **Beta 2.2 — 50 checks implemented**, score 38/100 in lab. Roadmap lives in `Documentation/ADST-Comparison-Gap-Analysis.md` and `Documentation/BUILD-PLAN-COMPREHENSIVE.md`.
+Current state: **v2.0.0 — 50 checks implemented**, score ~56/100 in lab (remaining failures are confirmed real chaos findings). Roadmap lives in `Documentation/ADST-Comparison-Gap-Analysis.md` and `Documentation/BUILD-PLAN-COMPREHENSIVE.md`.
 
 ---
 
@@ -97,7 +97,7 @@ These are strict — violations cause runtime errors in the lab.
 |---------|--------|-------------|
 | `$x ?? $default` | PS 7+ only | `if ($null -ne $x) { $x } else { $default }` |
 | `$x ??= $default` | PS 7+ only | `if ($null -eq $x) { $x = $default }` |
-| `$dc.HostName` | Property doesn't exist on inventory objects | `$dc.Name` |
+| `$dc.DNSHostName` | Not set on inventory objects | `$dc.Name` (FQDN) or `$dc.HostName` (short name) |
 | `Get-ADDomain` inside a check loop | Runspace context issues; causes partition DN errors | Build `$domainDN` directly (see below) |
 | `Get-CimInstance` without compat check | Fails on 2012 R2 | Use `Get-WmiObject` or `Get-CompatibleSystemInfo` |
 | `[string]::IsNullOrEmpty($x)` on PS objects | Type mismatch edge cases | `-not $x` or `-not [string]::IsNullOrWhiteSpace($x)` |
@@ -242,7 +242,7 @@ Each check needs an entry in its `Definitions/<Category>.json`:
 
 ---
 
-## Implemented Checks (50 total — Beta 2.2)
+## Implemented Checks (50 total — v2.0.0)
 
 | Category | IDs | Count |
 |----------|-----|-------|
@@ -365,4 +365,6 @@ $Inventory.Sites                # Array of AD site objects
 $Inventory.FSMORoles            # FSMO role holder names
 ```
 
-DC objects use `.Name` (not `.HostName`, not `.DNSHostName`) for targeting remote commands with `-ComputerName` or `-Server`.
+DC objects have:
+- `.Name` — FQDN (e.g. `DC01.LAB.COM`) — use for `-ComputerName`, `-Server`
+- `.HostName` — short name (e.g. `DC01`) — use when matching AD object names in Distinguished Names (e.g. `CN=DC01,...`)

@@ -7,16 +7,8 @@
     based on evaluated check results using hybrid percentage-based scoring.
 
 .NOTES
-    Version: 1.2.0-beta2
+    Version: 2.0.0
     Compatibility: PowerShell 5.1+
-
-    Beta 2.0 Changes:
-        - Replaced flat penalty scoring with hybrid percentage-based model
-        - Score is now normalized by total checks (enterprise-scale safe)
-        - Formula: Score = 100 - SUM((FailedBySeverity / TotalChecks) * Weight * 100)
-        - Weights: Critical=40, High=25, Medium=20, Low=15
-        - A 200-DC environment with 5% critical issues scores ~87 (was 0)
-        - Per-category scoring uses same hybrid model
 #>
 
 function Invoke-HealthScoring {

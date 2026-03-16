@@ -1,5 +1,62 @@
 # AD Health Check - Changelog
 
+## [2.0.0] - 2026-03-16
+
+### Summary
+First stable release. 50 checks across 9 categories. All known false positives resolved.
+Score in lab: ~56/100 — remaining failures are confirmed real chaos findings.
+
+### Fixed
+
+#### Evaluator.ps1 — Single-quoted string regex
+- `"^'(.*)' $"` had trailing space before `$`; single-quoted string literals in conditions
+  (e.g. `'Not Responding'`, `'Stopped'`) never parsed correctly. All quoted conditions silently
+  matched nothing.
+- Fix: `"^'(.*)'$"` — removed the trailing space.
+
+#### DB-001 (NTDS Database Health) — Array coercion false positive
+- `[bool]@($false, $false)` evaluates to `$true` in PowerShell (non-empty array is truthy).
+  Scalar conditions (`HasIssue == true`) against per-DC array results always triggered.
+- Fix: All DB-001 conditions changed to `Any(...)` form in `Definitions/Database.json`.
+
+#### REP-010 (Connection Objects) — FQDN in DN match
+- `$dc.Name` is an FQDN (`DC01.LAB.COM`) but connection object DNs use short hostnames
+  (`CN=DC01,...`). Pattern never matched.
+- Fix: Use `$dc.HostName` (short name) in DN regex.
+
+#### REP-004 (Replication Latency) — CSV field offset from quoted DN
+- `repadmin /showrepl /csv` wraps the naming context DN in quotes (`"DC=LAB,DC=COM"`).
+  Naive `-split ','` shifted all field indices by 1; `$fields[5]` landed on the site name
+  instead of LastSuccessTime, causing DateTime.Parse failure → 999999 min latency → always fail.
+- Fix: Rewrite using `ConvertFrom-Csv -Header` with named columns.
+
+#### REP-007 (Failed Replications) — Same CSV field offset
+- Same root cause; `$fields[4]` was reading `DC=COM"` as failure count → always 0 → false Pass.
+- Fix: Same `ConvertFrom-Csv` approach, using `$row.Failures`.
+
+#### REP-005 (SYSVOL Replication) — Local-only check
+- `Get-Service` and `Get-WmiObject` calls had no `-ComputerName`; only checked the local DC.
+- Fix: Iterate `$Inventory.DomainControllers`, pass `-ComputerName $dc.Name` to all calls.
+  WMI namespace failures skip the DC (no false error result added).
+
+#### REP-008 (Metadata Consistency) — FQDN vs short name phantom detection
+- `$reachableDCs` collected FQDNs; AD server objects in Configuration partition use short names.
+  All DCs were flagged as phantom.
+- Fix: Use `$dc.HostName` (or `($dc.Name -split '\.')[0]` fallback) for the reachable list.
+
+#### DNS-002 (DNS Zone Health) — TrustAnchors false positive
+- `TrustAnchors` is a DNSSEC system zone that legitimately has `DynamicUpdate=None`.
+  The check flagged it as a configuration issue.
+- Fix: Exclude known system zones (`TrustAnchors`, `0.in-addr.arpa`, `127.in-addr.arpa`,
+  `255.in-addr.arpa`) from the dynamic update check.
+
+### Changed
+- All version strings updated from beta designations to `2.0.0`
+- `Config/settings.json` cleaned of beta calibration comments
+- CLAUDE.md updated to reflect `$dc.HostName` availability (added in Discovery.ps1)
+
+---
+
 ## [1.1.0-beta1] - 2026-03-02
 
 ### Summary

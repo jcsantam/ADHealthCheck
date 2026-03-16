@@ -6,14 +6,8 @@
     Main orchestrator. Runs Discovery, Execution, Evaluation, Scoring, and Reporting.
 
 .NOTES
-    Version: 1.1.0-beta1
+    Version: 2.0.0
     Compatibility: PowerShell 5.1+
-
-    Beta 1.1 Changes:
-        - ConvertFrom-Json PSCustomObject-to-Hashtable conversion hardened
-        - ReportPath properly attached to result object via Add-Member
-        - Phase error messages improved with exact failure context
-        - Database warnings suppressed to Verbose level
 #>
 
 # =============================================================================
@@ -169,7 +163,7 @@ function Invoke-HealthCheckEngine {
     # Init logger
     $logFile = Join-Path $OutputPath "logs\ADHealthCheck-$runId.log"
     Initialize-Logger -LogFilePath $logFile -LogLevel $LogLevel
-    Write-Log -Level Information -Message "=== AD Health Check v1.1.0-beta1 | RunID=$runId ==="
+    Write-Log -Level Information -Message "=== AD Health Check v2.0.0 | RunID=$runId ==="
     Write-Host ""
 
     # -----------------------------------------------------------------------

@@ -37,7 +37,7 @@
 
 .NOTES
     Author: AD Health Check Team
-    Version: 1.0
+    Version: 2.0
     Requires: Domain Admin credentials (or equivalent)
     PowerShell Version: 5.1 or later
 #>
@@ -70,7 +70,7 @@ $ErrorActionPreference = 'Stop'
 # SCRIPT VARIABLES
 # =============================================================================
 
-$scriptVersion = "1.0.0"
+$scriptVersion = "2.0.0"
 $scriptStart = Get-Date
 
 # =============================================================================

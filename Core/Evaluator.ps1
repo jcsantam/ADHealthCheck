@@ -8,16 +8,8 @@
     threshold references, and all comparison operators.
 
 .NOTES
-    Version: 1.1.0-beta1
+    Version: 2.0.0
     Compatibility: PowerShell 5.1+
-
-    Beta 1.1 Changes:
-        - Removed double ConvertFrom-Json (EvaluationRules already PSCustomObject)
-        - Fixed Get-AffectedObject null safety for collection results
-        - Added property alias mapping: normalizes check output property names
-          to the canonical names used in JSON rule conditions
-        - Improved DSL parser: handles Count(Collection) syntax
-        - Added debug tracing for condition evaluation failures
 #>
 
 # =============================================================================

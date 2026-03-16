@@ -7,15 +7,8 @@
     Each check runs in an isolated runspace with access to the AD Inventory.
 
 .NOTES
-    Version: 1.1.0-beta1
+    Version: 2.0.0
     Compatibility: PowerShell 5.1+
-
-    Beta 1.1 Changes:
-        - Confirmed: No nested Start-Job (root cause of null RawOutput in Beta 1.0)
-        - Direct script invocation inside runspace: $result = & $ScriptPath -Inventory $inv
-        - Added per-check timeout enforcement
-        - @() protection on all collection .Count calls
-        - Improved error capture per runspace
 #>
 
 function Invoke-CheckExecution {
