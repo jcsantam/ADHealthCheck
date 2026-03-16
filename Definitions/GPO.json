@@ -172,6 +172,148 @@
       ],
       "IsEnabled": true,
       "Version": "2.0"
+    },
+    {
+      "CheckId": "GPO-007",
+      "CheckName": "Empty GPO Detection",
+      "Category": "GPO",
+      "Severity": "Low",
+      "ScriptPath": "Test-EmptyGPOs.ps1",
+      "PassMessage": "No empty GPOs detected",
+      "FailMessage": "Empty GPOs detected - cleanup candidates",
+      "EvaluationRules": [
+        {
+          "RuleId": "GPO-007-EMPTY",
+          "Condition": "Any(IsEmpty == true)",
+          "Status": "Warning",
+          "Severity": "low",
+          "Message": "One or more GPOs have no settings (Computer and User DSVersion both 0)"
+        },
+        {
+          "RuleId": "GPO-007-HASISSUE",
+          "Condition": "Any(HasIssue == true)",
+          "Status": "Warning",
+          "Severity": "low",
+          "Message": "Empty GPO detected - review and remove if no longer needed"
+        }
+      ],
+      "IsEnabled": true,
+      "Version": "2.0"
+    },
+    {
+      "CheckId": "GPO-008",
+      "CheckName": "Disabled GPO Links",
+      "Category": "GPO",
+      "Severity": "Low",
+      "ScriptPath": "Test-DisabledGPOLinks.ps1",
+      "PassMessage": "No disabled GPO links detected",
+      "FailMessage": "Disabled GPO links detected",
+      "EvaluationRules": [
+        {
+          "RuleId": "GPO-008-DISABLED-LINK",
+          "Condition": "Any(LinkOption == 1)",
+          "Status": "Warning",
+          "Severity": "low",
+          "Message": "One or more GPO links are disabled (LinkOption=1) - cleanup candidates"
+        },
+        {
+          "RuleId": "GPO-008-DISABLED-ENFORCED-LINK",
+          "Condition": "Any(LinkOption == 3)",
+          "Status": "Warning",
+          "Severity": "low",
+          "Message": "One or more GPO links are disabled and enforced (LinkOption=3)"
+        },
+        {
+          "RuleId": "GPO-008-HASISSUE",
+          "Condition": "Any(HasIssue == true)",
+          "Status": "Warning",
+          "Severity": "low",
+          "Message": "Disabled GPO link detected - review and remove if no longer needed"
+        }
+      ],
+      "IsEnabled": true,
+      "Version": "2.0"
+    },
+    {
+      "CheckId": "GPO-009",
+      "CheckName": "Blocked GPO Inheritance",
+      "Category": "GPO",
+      "Severity": "Low",
+      "ScriptPath": "Test-BlockedInheritance.ps1",
+      "PassMessage": "No OUs with blocked GPO inheritance detected",
+      "FailMessage": "OUs with blocked GPO inheritance detected",
+      "EvaluationRules": [
+        {
+          "RuleId": "GPO-009-BLOCKED",
+          "Condition": "Any(IsBlocked == true)",
+          "Status": "Warning",
+          "Severity": "low",
+          "Message": "One or more OUs have GPO inheritance blocked - verify this is intentional"
+        },
+        {
+          "RuleId": "GPO-009-HASISSUE",
+          "Condition": "Any(HasIssue == true)",
+          "Status": "Warning",
+          "Severity": "low",
+          "Message": "Blocked GPO inheritance detected"
+        }
+      ],
+      "IsEnabled": true,
+      "Version": "2.0"
+    },
+    {
+      "CheckId": "GPO-010",
+      "CheckName": "GPO Link Order Analysis",
+      "Category": "GPO",
+      "Severity": "Medium",
+      "ScriptPath": "Test-GPOLinkOrder.ps1",
+      "PassMessage": "No duplicate or excessive GPO links detected",
+      "FailMessage": "GPO link order issues detected",
+      "EvaluationRules": [
+        {
+          "RuleId": "GPO-010-DUPLICATE",
+          "Condition": "Any(IsDuplicate == true)",
+          "Status": "Warning",
+          "Severity": "medium",
+          "Message": "Duplicate GPO links detected - same GPO linked more than once to the same container"
+        },
+        {
+          "RuleId": "GPO-010-EXCESSIVE",
+          "Condition": "Any(LinkCount > 20)",
+          "Status": "Warning",
+          "Severity": "low",
+          "Message": "Container has more than 20 GPO links - may impact logon and startup performance"
+        },
+        {
+          "RuleId": "GPO-010-HASISSUE",
+          "Condition": "Any(HasIssue == true)",
+          "Status": "Warning",
+          "Severity": "medium",
+          "Message": "GPO link order issue detected"
+        }
+      ],
+      "IsEnabled": true,
+      "Version": "2.0"
+    },
+    {
+      "CheckId": "GPO-011",
+      "CheckName": "Cross-Domain GPO Links",
+      "Category": "GPO",
+      "Severity": "Medium",
+      "ScriptPath": "Test-CrossDomainGPOLinks.ps1",
+      "PassMessage": "No cross-domain GPO links detected",
+      "FailMessage": "Cross-domain GPO links detected",
+      "EvaluationRules": [
+        {
+          "RuleId": "GPO-011-CROSS-DOMAIN",
+          "Condition": "Any(HasIssue == true)",
+          "Status": "Warning",
+          "Severity": "medium",
+          "Message": "Cross-domain GPO links detected - GPOs from another domain are linked in this domain"
+        }
+      ],
+      "IsEnabled": true,
+      "Version": "2.0"
     }
   ]
 }
