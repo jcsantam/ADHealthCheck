@@ -53,23 +53,26 @@ try {
         try {
             # -----------------------------------------------------------------------
             # repadmin /showrepl /csv - parse for failed replication links
-            # CSV columns: Destination DSA,Naming Context,Source DSA,
-            #              Transport Type,Number of Failures,Last Failure Time,
-            #              Last Success Time,Last Failure Status
+            # Fixed column names (11 fields after stripping showrepl_INFO prefix)
+            # ConvertFrom-Csv handles quoted DNs like "DC=LAB,DC=COM" correctly
             # -----------------------------------------------------------------------
-            $replCSV = & repadmin /showrepl $dc.Name /csv 2>&1 |
-                Where-Object { $_ -match '^\w' -and $_ -notmatch '^Destination' }
+            $csvHeaders = 'Flags','DestSite','DestDC','NamingContext','SrcSite','SrcDC','Transport','Failures','LastFailTime','LastSuccessTime','LastStatus'
+
+            $replRaw  = & repadmin /showrepl $dc.Name /csv 2>&1
+            $dataLines = $replRaw | Where-Object { $_ -match "^showrepl_INFO" } |
+                         ForEach-Object { $_ -replace "^showrepl_INFO," }
 
             $failedLinks  = @()
             $sourceDCList = @()
 
-            foreach ($line in $replCSV) {
-                $fields = $line -split ','
-                if ($fields.Count -ge 6) {
+            if ($dataLines) {
+                $parsed = @($dataLines | ConvertFrom-Csv -Header $csvHeaders)
+
+                foreach ($row in $parsed) {
                     $numFailures = 0
-                    if ([int]::TryParse($fields[4].Trim(), [ref]$numFailures) -and $numFailures -gt 0) {
-                        $failedLinks  += $line
-                        $sourceDCList += $fields[2].Trim()
+                    if ([int]::TryParse($row.Failures, [ref]$numFailures) -and $numFailures -gt 0) {
+                        $failedLinks  += $row
+                        $sourceDCList += $row.SrcDC
                         $failureCount += $numFailures
                     }
                 }
@@ -78,8 +81,7 @@ try {
             $uniqueSources = @($sourceDCList | Select-Object -Unique).Count
             $breakdown     = if ($failedLinks.Count -gt 0) {
                 ($failedLinks | Select-Object -First 5 | ForEach-Object {
-                    $f = $_ -split ','
-                    "Source:$($f[2].Trim()) Failures:$($f[4].Trim())"
+                    "Source:$($_.SrcDC) Failures:$($_.Failures)"
                 }) -join "; "
             } else { "None" }
 

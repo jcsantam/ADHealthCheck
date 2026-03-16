@@ -51,10 +51,10 @@ try {
                 -SearchBase "CN=Sites,CN=Configuration,$domainDN" `
                 -Server $domain.Name -ResultPageSize 500 -ErrorAction Stop
             
-            # Get reachable DCs from inventory
-            $reachableDCs = $Inventory.DomainControllers | 
+            # Get reachable DCs from inventory - use short hostname to match AD server object names
+            $reachableDCs = $Inventory.DomainControllers |
                 Where-Object { $_.Domain -eq $domain.Name -and $_.IsReachable } |
-                ForEach-Object { $_.Name }
+                ForEach-Object { if ($_.HostName) { $_.HostName } else { ($_.Name -split '\.')[0] } }
             
             # Find phantom DCs (in metadata but not reachable)
             $phantomDCs = @()

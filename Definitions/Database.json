@@ -15,35 +15,28 @@
       "EvaluationRules": [
         {
           "RuleId": "DB-001-STATE",
-          "Condition": "DatabaseState != 'Clean Shutdown'",
+          "Condition": "Any(DatabaseState == 'Not Responding')",
           "Status": "Fail",
           "Severity": "critical",
           "Message": "NTDS database state indicates improper shutdown or corruption"
         },
         {
-          "RuleId": "DB-001-SPACE",
-          "Condition": "FreeSpaceGB < CriticalThreshold",
-          "Status": "Fail",
-          "Severity": "high",
-          "Message": "Insufficient free disk space for database growth"
-        },
-        {
           "RuleId": "DB-001-ESE",
-          "Condition": "ESEErrorCount > 0",
+          "Condition": "Any(ESEErrorCount > 0)",
           "Status": "Warning",
           "Severity": "medium",
           "Message": "ESE database errors detected in Application event log"
         },
         {
           "RuleId": "DB-001-HASISSUE",
-          "Condition": "HasIssue == true",
+          "Condition": "Any(HasIssue == true)",
           "Status": "Fail",
           "Severity": "high",
           "Message": "NTDS database health issue detected"
         },
         {
           "RuleId": "DB-001-ISUNHEALTHY",
-          "Condition": "IsHealthy == false",
+          "Condition": "Any(IsHealthy == false)",
           "Status": "Fail",
           "Severity": "high",
           "Message": "NTDS database health check reported failure"

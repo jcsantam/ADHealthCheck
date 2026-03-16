@@ -333,7 +333,7 @@ function Resolve-ConditionValue {
     $v = $RawValue.Trim()
 
     # Quoted string: 'Stopped', "Failed"
-    if ($v -match "^'(.*)' $") { return $matches[1] }
+    if ($v -match "^'(.*)'$") { return $matches[1] }
     if ($v -match '^"(.*)"$') { return $matches[1] }
 
     # Boolean literals

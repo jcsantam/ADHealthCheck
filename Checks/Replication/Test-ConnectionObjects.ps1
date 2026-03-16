@@ -84,8 +84,9 @@ try {
             $dcsWithoutConnections = 0
             
             foreach ($dc in $domainDCs) {
-                $dcConnections = $connections | Where-Object { 
-                    $_.DistinguishedName -match "CN=$($dc.Name),"
+                $dcShortName = if ($dc.HostName) { $dc.HostName } else { ($dc.Name -split '\.')[0] }
+                $dcConnections = $connections | Where-Object {
+                    $_.DistinguishedName -match "CN=NTDS Settings,CN=$([regex]::Escape($dcShortName)),"
                 }
                 
                 if (-not $dcConnections -or $dcConnections.Count -eq 0) {

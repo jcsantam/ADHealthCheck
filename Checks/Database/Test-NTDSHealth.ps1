@@ -84,9 +84,11 @@ try {
                 $repadminRaw = & repadmin /showrepl $dc.Name /csv 2>&1
                 $repadminOutput = $repadminRaw | Out-String
 
-                # Count lines with replication failures (non-zero error codes)
+                # CSV fields: Site,DC,NC,SourceSite,SourceDC,Transport,Failures,LastFailTime,LastSuccessTime,ErrorCode
+                # Skip header row; flag lines where the last field (ErrorCode) is non-zero
                 $replLines = $repadminRaw | Where-Object {
-                    $_ -match '^\d' -and $_ -notmatch ',0,$' -and $_ -match ',\d+,'
+                    $_ -notmatch '^showrepl' -and $_ -match ',' -and
+                    ($_ -split ',')[-1] -match '^\d+$' -and [int](($_ -split ',')[-1]) -ne 0
                 }
                 $replErrors = @($replLines).Count
 
@@ -103,39 +105,39 @@ try {
         }
 
         # -----------------------------------------------------------------------
-        # CHECK 3: DSA version and operational state via LDAP
+        # CHECK 3: DSA version and operational state via LDAP (informational only)
+        # Get-ADReplicationUpToDatenessVectorTable can fail against older DCs in
+        # a runspace context without indicating actual DB corruption - treat as
+        # supplementary info only, not a health gate.
         # -----------------------------------------------------------------------
         if ($ldapResponding) {
             try {
-                # Query replication metadata - if this works, DB is consistent
                 $replMeta = Get-ADReplicationUpToDatenessVectorTable -Target $dc.Name -ErrorAction Stop
                 $partnerCount = @($replMeta).Count
                 Write-Verbose "[DB-001] $($dc.Name) replication metadata OK ($partnerCount partners)"
             }
             catch {
-                $issues += "Cannot read replication metadata - possible database inconsistency"
-                if ($severity -eq 'Info') { $severity = 'High' }
-                Write-Verbose "[DB-001] $($dc.Name) replication metadata failed: $_"
+                Write-Verbose "[DB-001] $($dc.Name) replication metadata query failed (non-critical): $_"
             }
         }
 
         # -----------------------------------------------------------------------
         # CHECK 4: Verify DC is advertising correctly (ntdsutil-equivalent via LDAP)
+        # Informational only — NTDSSettingsObjectDN query can fail on older DCs
+        # (2012 R2) in a runspace without indicating actual DB corruption.
+        # LDAP response (Check 1) is the authoritative DB health gate.
         # -----------------------------------------------------------------------
         if ($ldapResponding) {
             try {
                 $dcObject = Get-ADDomainController -Identity $dc.Name -ErrorAction Stop
-                if (-not $dcObject.IsGlobalCatalog -and -not $dcObject.IsReadOnly) {
-                    # Verify basic writability by checking operational attributes
+                if (-not $dcObject.IsGlobalCatalog -and -not $dcObject.IsReadOnly -and $dcObject.NTDSSettingsObjectDN) {
                     $null = Get-ADObject -Identity $dcObject.NTDSSettingsObjectDN `
                         -Properties * -Server $dc.Name -ErrorAction Stop
                 }
                 Write-Verbose "[DB-001] $($dc.Name) DC object accessible OK"
             }
             catch {
-                $issues += "Cannot access DC operational attributes - possible database issue"
-                if ($severity -eq 'Info') { $severity = 'Medium' }
-                Write-Verbose "[DB-001] $($dc.Name) DC object check failed: $_"
+                Write-Verbose "[DB-001] $($dc.Name) DC object check failed (non-critical): $_"
             }
         }
 

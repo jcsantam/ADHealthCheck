@@ -48,45 +48,49 @@ try {
         return @()
     }
     
+    # Fixed column names matching repadmin /showrepl /csv output order
+    $csvHeaders = 'Flags','DestSite','DestDC','NamingContext','SrcSite','SrcDC','Transport','Failures','LastFailTime','LastSuccessTime','LastStatus'
+
     foreach ($dc in $domainControllers) {
         try {
             $repadminOutput = & repadmin /showrepl $dc.Name /csv 2>&1
-            
+
             if ($LASTEXITCODE -ne 0) { continue }
-            
-            $csvData = $repadminOutput | Where-Object { $_ -notmatch "^showrepl_COLUMNS" }
-            
-            foreach ($line in $csvData) {
-                if ([string]::IsNullOrWhiteSpace($line)) { continue }
-                
-                $fields = $line -split ','
-                if ($fields.Count -lt 8) { continue }
-                
+
+            # Strip showrepl_INFO prefix; ConvertFrom-Csv handles quoted DNs correctly
+            $dataLines = $repadminOutput | Where-Object { $_ -match "^showrepl_INFO" } |
+                         ForEach-Object { $_ -replace "^showrepl_INFO," }
+
+            if (-not $dataLines) { continue }
+
+            $parsed = @($dataLines | ConvertFrom-Csv -Header $csvHeaders)
+
+            foreach ($row in $parsed) {
                 $lastSuccessTime = $null
-                if ($fields[5] -and $fields[5] -ne "0") {
-                    try { $lastSuccessTime = [DateTime]::Parse($fields[5]) } catch {}
+                if ($row.LastSuccessTime -and $row.LastSuccessTime -ne '0') {
+                    try { $lastSuccessTime = [DateTime]::Parse($row.LastSuccessTime) } catch {}
                 }
-                
+
                 $latencySeconds = if ($lastSuccessTime) {
                     ((Get-Date) - $lastSuccessTime).TotalSeconds
                 } else { 999999 }
-                
+
                 $hasIssue = $latencySeconds -gt $warningThreshold
-                $severity = if ($latencySeconds -gt $criticalThreshold) { 'Critical' } 
-                           elseif ($latencySeconds -gt $warningThreshold) { 'High' } 
+                $severity = if ($latencySeconds -gt $criticalThreshold) { 'Critical' }
+                           elseif ($latencySeconds -gt $warningThreshold) { 'High' }
                            else { 'Info' }
-                
+
                 $results += [PSCustomObject]@{
-                    SourceDC = $dc.Name
-                    DestinationDC = $fields[1]
-                    NamingContext = $fields[2]
+                    SourceDC        = $dc.Name
+                    DestinationDC   = $row.DestDC
+                    NamingContext   = $row.NamingContext
                     LastSuccessTime = $lastSuccessTime
-                    LatencyMinutes = [math]::Round($latencySeconds / 60, 1)
-                    Severity = $severity
-                    Status = if ($hasIssue) { 'Warning' } else { 'Healthy' }
-                    IsHealthy = -not $hasIssue
-                    HasIssue = $hasIssue
-                    Message = "Latency: $([math]::Round($latencySeconds / 60, 1)) min"
+                    LatencyMinutes  = [math]::Round($latencySeconds / 60, 1)
+                    Severity        = $severity
+                    Status          = if ($hasIssue) { 'Warning' } else { 'Healthy' }
+                    IsHealthy       = -not $hasIssue
+                    HasIssue        = $hasIssue
+                    Message         = "Latency: $([math]::Round($latencySeconds / 60, 1)) min"
                 }
             }
         }
