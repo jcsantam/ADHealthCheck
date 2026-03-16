@@ -28,7 +28,9 @@
         }
       ],
       "IsEnabled": true,
-      "Version": "2.0"
+      "Version": "2.0",
+      "Help": "Verifies that all critical DNS SRV records required for AD operation are registered (including _ldap._tcp, _kerberos._tcp, _gc._tcp, etc.). Missing SRV records prevent domain-joined computers from locating DCs.",
+      "Remediation": "1. On a DC run: dcdiag /test:registerindns to re-register all DNS records. 2. Or restart NETLOGON service: Restart-Service NETLOGON. 3. Verify the DC's IP address matches its DNS A record. 4. Check the '_msdcs' DNS zone exists and is AD-integrated."
     },
     {
       "CheckId": "DNS-002",
@@ -55,7 +57,9 @@
         }
       ],
       "IsEnabled": true,
-      "Version": "2.0"
+      "Version": "2.0",
+      "Help": "Validates that all AD-integrated DNS zones are healthy and loading correctly. Zone load failures cause incomplete DNS responses and can affect AD replication.",
+      "Remediation": "1. In DNS Manager check for zones showing as 'Not Authoritative' or with errors. 2. Run: dnscmd /zonerefresh <zonename> to force a zone reload. 3. Check Event Viewer DNS Server log for zone load errors. 4. Verify AD replication is healthy - DNS zones replicate via AD replication."
     },
     {
       "CheckId": "DNS-003",
@@ -89,7 +93,9 @@
         }
       ],
       "IsEnabled": true,
-      "Version": "2.0"
+      "Version": "2.0",
+      "Help": "Checks that DNS forwarders are configured and responsive. Unresponsive forwarders cause slow or failed external DNS resolution, impacting internet connectivity for domain-joined computers.",
+      "Remediation": "1. Test forwarder reachability: Resolve-DnsName google.com -Server <ForwarderIP>. 2. Replace unresponsive forwarders in DNS Manager > Server Properties > Forwarders. 3. Consider using public DNS servers (8.8.8.8, 1.1.1.1) as fallback forwarders. 4. Ensure firewall allows outbound UDP/TCP port 53 to forwarder IPs."
     },
     {
       "CheckId": "DNS-004",
@@ -123,7 +129,9 @@
         }
       ],
       "IsEnabled": true,
-      "Version": "2.0"
+      "Version": "2.0",
+      "Help": "Checks that DNS root hints are correctly configured on all DCs. Incorrect root hints cause DNS resolution failures for external names when no forwarders are configured.",
+      "Remediation": "1. In DNS Manager, right-click the server and select Properties, then Root Hints tab. 2. Click 'Copy from Server' to restore default root hint servers. 3. Alternatively run: dnscmd /resetroothintstodefault. 4. If using forwarders for all external resolution, root hints may not be critical."
     },
     {
       "CheckId": "DNS-005",
@@ -157,7 +165,9 @@
         }
       ],
       "IsEnabled": true,
-      "Version": "2.0"
+      "Version": "2.0",
+      "Help": "Verifies DNS scavenging is configured to automatically remove stale DNS records. Without scavenging, DNS accumulates outdated records from decommissioned computers causing resolution errors.",
+      "Remediation": "1. In DNS Manager, right-click the server and select Set Aging/Scavenging for All Zones. 2. Enable scavenging with No-refresh and Refresh intervals of 7 days each. 3. Also enable scavenging per zone: right-click zone > Properties > General > Aging. 4. Run: dnscmd /startscavenging to trigger an immediate scavenging cycle."
     },
     {
       "CheckId": "DNS-006",
@@ -184,7 +194,9 @@
         }
       ],
       "IsEnabled": true,
-      "Version": "2.0"
+      "Version": "2.0",
+      "Help": "Checks that DNS zone transfers are restricted to authorized servers only. Unrestricted zone transfers expose the full DNS record set to any requester, aiding reconnaissance attacks.",
+      "Remediation": "1. In DNS Manager, right-click each zone and select Properties > Zone Transfers. 2. Select 'Only to servers listed on the Name Servers tab' or 'Only to the following servers'. 3. Remove 'Allow zone transfers to any server' if set. 4. For AD-integrated zones, zone transfers may not be needed at all if all DCs run DNS."
     },
     {
       "CheckId": "DNS-007",
@@ -211,7 +223,9 @@
         }
       ],
       "IsEnabled": true,
-      "Version": "2.0"
+      "Version": "2.0",
+      "Help": "Verifies that AD-integrated DNS zones use Secure-only dynamic updates. Non-secure updates allow any computer to register or overwrite DNS records, enabling DNS spoofing and man-in-the-middle attacks.",
+      "Remediation": "1. In DNS Manager, right-click the affected zone and select Properties. 2. Change 'Dynamic Updates' from 'Nonsecure and secure' to 'Secure only'. 3. This requires the zone to be AD-integrated. 4. Verify that legitimate clients can still update their DNS records after the change."
     }
   ]
 }

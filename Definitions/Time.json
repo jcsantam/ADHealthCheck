@@ -28,7 +28,9 @@
         }
       ],
       "IsEnabled": true,
-      "Version": "2.0"
+      "Version": "2.0",
+      "Help": "Verifies the PDC Emulator is synchronized to a reliable external NTP time source. The PDC is the authoritative time source for the entire domain - incorrect PDC time propagates to all DCs and clients, potentially breaking Kerberos.",
+      "Remediation": "1. Configure the PDC to sync from reliable external NTP: w32tm /config /manualpeerlist:'pool.ntp.org,0x8' /syncfromflags:MANUAL /reliable:YES /update. 2. Restart W32Time: Restart-Service W32Time. 3. Force sync: w32tm /resync /force. 4. Verify: w32tm /query /computer:<PDC> /status."
     },
     {
       "CheckId": "TIME-002",
@@ -64,7 +66,9 @@
         }
       ],
       "IsEnabled": true,
-      "Version": "2.0"
+      "Version": "2.0",
+      "Help": "Measures the time difference between each DC and a reference time source. Kerberos authentication fails if any DC's clock differs by more than 5 minutes from the domain time, causing widespread login failures.",
+      "Remediation": "1. Check current offset: w32tm /stripchart /computer:<PDC> /dataonly /samples:3. 2. Force resync: w32tm /resync /force on the affected DC. 3. If offset is large, set time manually then resync: Set-Date, then w32tm /resync. 4. Ensure W32Time service is running and set to Automatic: Set-Service W32Time -StartupType Automatic."
     },
     {
       "CheckId": "TIME-003",
@@ -84,7 +88,9 @@
         }
       ],
       "IsEnabled": true,
-      "Version": "2.0"
+      "Version": "2.0",
+      "Help": "Tests UDP port 123 connectivity to all NTP servers configured on the PDC Emulator. If the PDC cannot reach its configured NTP servers, it falls back to the local clock, causing domain-wide time drift.",
+      "Remediation": "1. Test NTP reachability: Test-NetConnection -ComputerName pool.ntp.org -Port 123. 2. Check firewall rules on the DC and perimeter - allow outbound UDP 123. 3. If servers are unreachable, configure alternative NTP servers: w32tm /config /manualpeerlist:'0.pool.ntp.org 1.pool.ntp.org'. 4. Consider using Windows Time service with the VM host clock as backup."
     },
     {
       "CheckId": "TIME-004",
@@ -111,7 +117,9 @@
         }
       ],
       "IsEnabled": true,
-      "Version": "2.0"
+      "Version": "2.0",
+      "Help": "Verifies W32Time is configured correctly: the PDC should use NTP type (syncing from external source) and all other DCs should use NT5DS type (syncing from the domain hierarchy).",
+      "Remediation": "1. On the PDC Emulator run: w32tm /config /manualpeerlist:'pool.ntp.org,0x8' /syncfromflags:MANUAL /reliable:YES /update. 2. On all other DCs: w32tm /config /syncfromflags:DOMHIER /reliable:NO /update. 3. Restart W32Time on all DCs: Restart-Service W32Time. 4. Verify type: w32tm /query /configuration | findstr Type."
     },
     {
       "CheckId": "TIME-005",
@@ -145,7 +153,9 @@
         }
       ],
       "IsEnabled": true,
-      "Version": "2.0"
+      "Version": "2.0",
+      "Help": "Checks that the Windows Time service is running and set to automatic startup on all DCs. A stopped W32Time service causes the DC to stop synchronizing time, eventually drifting beyond Kerberos tolerance.",
+      "Remediation": "1. Start the service: Start-Service W32Time. 2. Set to automatic: Set-Service W32Time -StartupType Automatic. 3. Re-register W32Time: w32tm /unregister; w32tm /register; Start-Service W32Time. 4. Check if a GPO is setting W32Time startup type - verify in GPMC."
     },
     {
       "CheckId": "TIME-006",
@@ -172,7 +182,9 @@
         }
       ],
       "IsEnabled": true,
-      "Version": "2.0"
+      "Version": "2.0",
+      "Help": "Checks the NTP stratum level of each DC. Stratum 16 means the clock is unsynchronized. High stratum levels indicate the DC is many hops from a reliable time source, reducing accuracy.",
+      "Remediation": "1. Stratum 16 means W32Time is not syncing - run w32tm /resync /force. 2. If the PDC has a high stratum, configure an external NTP source (see TIME-001). 3. Check: w32tm /query /status on the affected DC. 4. Ensure W32Time can reach its configured source - check network/firewall."
     },
     {
       "CheckId": "TIME-007",
@@ -206,7 +218,9 @@
         }
       ],
       "IsEnabled": true,
-      "Version": "2.0"
+      "Version": "2.0",
+      "Help": "Checks how frequently the PDC polls its NTP time source. A very long poll interval (over 1 hour) means the PDC is infrequently correcting its clock, allowing gradual drift.",
+      "Remediation": "1. Reduce SpecialPollInterval: w32tm /config /SpecialPollInterval:3600 /update. 2. Typical recommended value is 3600 seconds (1 hour) for the PDC. 3. Restart W32Time after changes: Restart-Service W32Time. 4. Verify: w32tm /query /configuration | findstr SpecialPollInterval."
     },
     {
       "CheckId": "TIME-008",
@@ -240,7 +254,9 @@
         }
       ],
       "IsEnabled": true,
-      "Version": "2.0"
+      "Version": "2.0",
+      "Help": "Monitors the phase offset (pending time correction) on each DC. A large phase offset means the DC clock is significantly off and W32Time is working to correct it, which may cause temporary Kerberos issues.",
+      "Remediation": "1. Force immediate resync: w32tm /resync /force on the affected DC. 2. If offset is very large (over 60 seconds), manually set the time first then resync. 3. Investigate why the clock drifted - check for suspended VMs or failed NTP sync. 4. Review w32tm /query /status to confirm correction is in progress."
     },
     {
       "CheckId": "TIME-009",
@@ -267,7 +283,9 @@
         }
       ],
       "IsEnabled": true,
-      "Version": "2.0"
+      "Version": "2.0",
+      "Help": "Verifies all DCs use the same time zone. Mixed time zones cause confusing event log timestamps and complicate cross-DC log correlation during security investigations.",
+      "Remediation": "1. Standardize all DCs to UTC: Set-TimeZone -Id 'UTC' (requires reboot or service restart to take effect). 2. UTC is recommended for DCs to eliminate DST complications. 3. Change via Server Manager or: tzutil /s 'UTC'. 4. Update monitoring tools to display times in UTC for consistency."
     },
     {
       "CheckId": "TIME-010",
@@ -294,7 +312,9 @@
         }
       ],
       "IsEnabled": true,
-      "Version": "2.0"
+      "Version": "2.0",
+      "Help": "Checks Daylight Saving Time configuration across DCs. DCs observing DST experience time jumps twice per year that can briefly interrupt Kerberos authentication and cause log timestamp confusion.",
+      "Remediation": "1. Set all DCs to UTC to eliminate DST: tzutil /s 'UTC' on each DC. 2. UTC has no DST transitions - clocks never jump. 3. If UTC is not possible, ensure all DCs use the same DST-observing time zone. 4. Schedule DC maintenance windows to avoid DST changeover weekends."
     }
   ]
 }

@@ -480,15 +480,49 @@ function Export-EnhancedHtmlReport {
             .header h1 {
                 font-size: 1.8em;
             }
-            
+
             .summary-cards {
                 grid-template-columns: 1fr;
             }
-            
+
             .category-grid {
                 grid-template-columns: 1fr;
             }
         }
+
+        /* ===== HELP & REMEDIATION PANEL ===== */
+        .help-toggle {
+            background: none;
+            border: 1px solid #94a3b8;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            font-size: 11px;
+            cursor: pointer;
+            color: #64748b;
+            margin-left: 8px;
+            vertical-align: middle;
+            line-height: 18px;
+            padding: 0;
+            flex-shrink: 0;
+        }
+        .help-toggle:hover { background: #e2e8f0; border-color: #475569; color: #1e293b; }
+        .help-panel {
+            display: none;
+            margin-top: 12px;
+            padding: 12px 14px;
+            background: #f8fafc;
+            border-left: 3px solid #3b82f6;
+            border-radius: 0 6px 6px 0;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+        .help-panel.open { display: block; }
+        .help-panel h4 { margin: 0 0 4px 0; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: #475569; }
+        .help-panel p { margin: 0 0 10px 0; color: #334155; }
+        .help-panel p:last-child { margin-bottom: 0; }
+        .help-panel ul { margin: 4px 0 10px 0; padding-left: 18px; color: #334155; }
+        .help-panel ul:last-child { margin-bottom: 0; }
     </style>
 </head>
 <body>
@@ -639,20 +673,35 @@ function Export-EnhancedHtmlReport {
     
     foreach ($result in $Results) {
         $statusClass = $result.EvaluationStatus.ToLower()
-        $itemClass = if ($result.EvaluationStatus -eq 'Fail') { 'fail' } 
-                     elseif ($result.EvaluationStatus -eq 'Warning') { 'warning' } 
+        $itemClass = if ($result.EvaluationStatus -eq 'Fail') { 'fail' }
+                     elseif ($result.EvaluationStatus -eq 'Warning') { 'warning' }
                      else { '' }
-        
+
+        $hasHelp = (-not [string]::IsNullOrWhiteSpace($result.Help)) -or (-not [string]::IsNullOrWhiteSpace($result.Remediation))
+        $helpButtonHtml = if ($hasHelp) { '<button class="help-toggle" onclick="toggleHelp(this)" title="Help &amp; Remediation">&#x2139;</button>' } else { '' }
+        $helpPanelHtml  = ''
+        if ($hasHelp) {
+            $helpPanelHtml = '<div class="help-panel">'
+            if (-not [string]::IsNullOrWhiteSpace($result.Help)) {
+                $helpPanelHtml += "<h4>About this check</h4><p>$([System.Web.HttpUtility]::HtmlEncode($result.Help))</p>"
+            }
+            if (-not [string]::IsNullOrWhiteSpace($result.Remediation)) {
+                $helpPanelHtml += "<h4>Remediation</h4><p>$([System.Web.HttpUtility]::HtmlEncode($result.Remediation))</p>"
+            }
+            $helpPanelHtml += '</div>'
+        }
+
         $html += @"
             <div class="check-item $itemClass">
                 <div class="check-header">
-                    <div class="check-name">$($result.CheckName) ($($result.CheckId))</div>
+                    <div class="check-name">$($result.CheckName) ($($result.CheckId))$helpButtonHtml</div>
                     <span class="check-status status-$statusClass">$($result.EvaluationStatus)</span>
                 </div>
                 <div class="check-details">
-                    <strong>Category:</strong> $($result.Category) | 
+                    <strong>Category:</strong> $($result.Category) |
                     <strong>Status:</strong> $($result.Message)
                 </div>
+$helpPanelHtml
             </div>
 "@
     }
@@ -669,6 +718,18 @@ function Export-EnhancedHtmlReport {
             </p>
         </div>
     </div>
+    <script>
+        function toggleHelp(btn) {
+            var panel = btn.closest('.check-card') || btn.closest('.check-item');
+            if (panel) {
+                var helpPanel = panel.querySelector('.help-panel');
+                if (helpPanel) {
+                    helpPanel.classList.toggle('open');
+                    btn.textContent = helpPanel.classList.contains('open') ? '\u2715' : '\u2139';
+                }
+            }
+        }
+    </script>
 </body>
 </html>
 "@

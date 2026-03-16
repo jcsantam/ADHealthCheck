@@ -617,6 +617,9 @@ function New-EvalResult {
         }
     }
 
+    $helpText        = if ($null -ne $checkDef -and $checkDef.Help)        { $checkDef.Help }        else { '' }
+    $remediationText = if ($null -ne $checkDef -and $checkDef.Remediation) { $checkDef.Remediation } else { '' }
+
     return [PSCustomObject]@{
         CheckId          = $Result.CheckId
         CheckName        = $Result.CheckName
@@ -625,6 +628,8 @@ function New-EvalResult {
         Severity         = $sev
         Message          = $displayMsg
         AffectedObjects  = $AffectedObjects
+        Help             = $helpText
+        Remediation      = $remediationText
         RawResult        = $Result
     }
 }

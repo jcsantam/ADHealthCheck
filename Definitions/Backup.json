@@ -51,7 +51,9 @@
         }
       ],
       "IsEnabled": true,
-      "Version": "2.0"
+      "Version": "2.0",
+      "Help": "Verifies that a recent system state backup exists for each DC. Without recent backups, recovery from AD corruption or accidental deletion may be impossible. Microsoft recommends daily backups.",
+      "Remediation": "1. Open Windows Server Backup on each DC. 2. Schedule a daily system state backup to a local or network location. 3. Verify backups complete successfully in the event log (Event ID 4). 4. Alternatively use Windows Server Backup CLI: wbadmin start systemstatebackup."
     },
     {
       "CheckId": "BACKUP-002",
@@ -78,7 +80,9 @@
         }
       ],
       "IsEnabled": true,
-      "Version": "2.0"
+      "Version": "2.0",
+      "Help": "Checks whether the Active Directory Recycle Bin optional feature is enabled. When enabled, deleted objects can be restored with all attributes intact without authoritative restore.",
+      "Remediation": "1. Verify Forest Functional Level is Windows Server 2008 R2 or higher. 2. Run: Enable-ADOptionalFeature -Identity 'Recycle Bin Feature' -Scope ForestOrConfigurationSet -Target (Get-ADForest).Name. 3. Note: this change is irreversible - ensure all DCs are upgraded first."
     },
     {
       "CheckId": "BACKUP-003",
@@ -112,7 +116,9 @@
         }
       ],
       "IsEnabled": true,
-      "Version": "2.0"
+      "Version": "2.0",
+      "Help": "Checks that all Volume Shadow Copy Service (VSS) writers are in a healthy state. Failed VSS writers prevent successful backups of AD, SQL, Exchange and other VSS-aware applications.",
+      "Remediation": "1. Run 'vssadmin list writers' to identify failed writers. 2. Note the writer name and associated service. 3. Restart the associated Windows service (e.g. 'net stop wbengine && net start wbengine'). 4. If persistent, reboot the DC during a maintenance window."
     },
     {
       "CheckId": "BACKUP-004",
@@ -146,7 +152,9 @@
         }
       ],
       "IsEnabled": true,
-      "Version": "2.0"
+      "Version": "2.0",
+      "Help": "Checks the tombstone lifetime (how long deleted objects persist before permanent removal). Values below 180 days reduce the recovery window; below 60 days may prevent successful backup restoration.",
+      "Remediation": "1. Open ADSIEdit and connect to the Configuration partition. 2. Navigate to CN=Directory Service,CN=Windows NT,CN=Services,CN=Configuration,DC=... 3. Set the tombstoneLifetime attribute to 180 (days). 4. Changes take effect without restart."
     }
   ]
 }

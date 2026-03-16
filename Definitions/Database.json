@@ -43,7 +43,9 @@
         }
       ],
       "IsEnabled": true,
-      "Version": "2.0"
+      "Version": "2.0",
+      "Help": "Checks the integrity and health of the NTDS.dit Active Directory database on each DC. Database corruption can cause replication failures, login issues, and data loss.",
+      "Remediation": "1. Run 'ntdsutil' then 'files' then 'integrity' to check for corruption. 2. For semantic errors run 'ntdsutil' then 'semantic database analysis' then 'go'. 3. If corruption found, consider restoring from backup or performing metadata cleanup. 4. Ensure sufficient disk space on the NTDS volume."
     },
     {
       "CheckId": "DB-002",
@@ -77,7 +79,9 @@
         }
       ],
       "IsEnabled": true,
-      "Version": "2.0"
+      "Version": "2.0",
+      "Help": "Checks the level of index fragmentation in the NTDS.dit database. High fragmentation increases query times and can slow AD operations across the forest.",
+      "Remediation": "1. Schedule an offline defragmentation during a maintenance window. 2. Boot DC to Directory Services Restore Mode (DSRM). 3. Run: ntdsutil 'activate instance ntds' 'files' 'compact to C:\\temp\\ntds' quit quit. 4. Replace original ntds.dit with compacted version. 5. Delete old log files and reboot."
     },
     {
       "CheckId": "DB-003",
@@ -125,7 +129,9 @@
         }
       ],
       "IsEnabled": true,
-      "Version": "2.0"
+      "Version": "2.0",
+      "Help": "Monitors the accumulation of NTDS transaction log files (edb*.log). Large numbers of logs indicate replication has stalled or backups are not triggering log truncation.",
+      "Remediation": "1. Check replication health with 'repadmin /replsummary'. 2. Resolve any replication errors - logs cannot be truncated until all replication partners are in sync. 3. After replication is healthy, run a system state backup to trigger log truncation. 4. Verify NTDS log path has sufficient disk space."
     },
     {
       "CheckId": "DB-004",
@@ -159,7 +165,9 @@
         }
       ],
       "IsEnabled": true,
-      "Version": "2.0"
+      "Version": "2.0",
+      "Help": "Analyzes NTDS.dit database file size relative to transaction logs to estimate white space (reclaimed space from deleted objects). Excessive white space wastes disk and can degrade performance.",
+      "Remediation": "1. If log count is high, fix replication first (see DB-003). 2. To reclaim white space perform offline defragmentation (see DB-002). 3. Consider enabling AD Recycle Bin to reduce permanent deletions (see BACKUP-003). 4. Monitor log growth rate to detect replication issues early."
     }
   ]
 }

@@ -28,7 +28,9 @@
         }
       ],
       "IsEnabled": true,
-      "Version": "2.0"
+      "Version": "2.0",
+      "Help": "Checks the overall replication health across all DC pairs using repadmin. Failed replications prevent AD changes from propagating and can cause authentication and GPO inconsistencies.",
+      "Remediation": "1. Run: repadmin /replsummary to see which DCs have failures. 2. Run: repadmin /showrepl <DC> to see detailed errors. 3. Common fixes: repadmin /syncall /AdeP to force sync all partitions. 4. Check firewall rules between sites. 5. For persistent errors check Event ID 1311 in the Directory Service log."
     },
     {
       "CheckId": "REP-002",
@@ -55,7 +57,9 @@
         }
       ],
       "IsEnabled": true,
-      "Version": "2.0"
+      "Version": "2.0",
+      "Help": "Examines the Active Directory replication error log for failed replication attempts. Even occasional replication failures accumulate over time, causing USN rollback risks and stale data.",
+      "Remediation": "1. Run: repadmin /showrepl * /csv | ConvertFrom-Csv | Where-Object {$_.'Number of Failures' -gt 0}. 2. Identify the specific error code and search docs.microsoft.com for the error. 3. Common error 8453 (access denied): check AD replication permissions. 4. Error 1256 (remote RPC): check DNS and firewall. 5. Error 8606 (lingering objects): run repadmin /removelingeringobjects."
     },
     {
       "CheckId": "REP-003",
@@ -82,7 +86,9 @@
         }
       ],
       "IsEnabled": true,
-      "Version": "2.0"
+      "Version": "2.0",
+      "Help": "Detects signs of USN rollback, which occurs when a DC is restored from snapshot without proper procedures. USN rollback causes inconsistent AD data across DCs and is very difficult to recover from.",
+      "Remediation": "1. If USN rollback is confirmed, the affected DC must be demoted and re-promoted. 2. Never restore a DC from a non-AD-aware snapshot. 3. Always use VSS-aware backups (Windows Server Backup) for DC restoration. 4. When using VMs, use VM Restore with AD awareness or use the VM-Generation-ID-aware hypervisors."
     },
     {
       "CheckId": "REP-004",
@@ -111,7 +117,9 @@
         }
       ],
       "IsEnabled": true,
-      "Version": "2.0"
+      "Version": "2.0",
+      "Help": "Measures how long it takes for changes to replicate from one DC to all others. High latency means users may experience inconsistent AD data depending on which DC they authenticate against.",
+      "Remediation": "1. Review site link costs and replication intervals in AD Sites and Services. 2. Reduce replication interval on critical site links (minimum is 15 minutes). 3. Check for replication errors blocking convergence (see REP-002). 4. For urgent changes use: repadmin /syncall /Ade to force immediate replication."
     },
     {
       "CheckId": "REP-005",
@@ -152,7 +160,9 @@
         }
       ],
       "IsEnabled": true,
-      "Version": "2.0"
+      "Version": "2.0",
+      "Help": "Checks SYSVOL replication health (DFSR or FRS). SYSVOL contains GPOs and logon scripts - inconsistent SYSVOL means different clients receive different policies depending on which DC they connect to.",
+      "Remediation": "1. Check DFSR health: Get-DfsrBacklog -DestinationComputerName <DC> -SourceComputerName <PDC>. 2. Force DFSR sync: dfsrdiag SyncNow /partner:<DC> /RGName:'Domain System Volume'. 3. For persistent issues perform a non-authoritative SYSVOL restore on the lagging DC. 4. Check Event Viewer DFS Replication log for errors."
     },
     {
       "CheckId": "REP-006",
@@ -188,7 +198,9 @@
         }
       ],
       "IsEnabled": true,
-      "Version": "2.0"
+      "Version": "2.0",
+      "Help": "Monitors the replication queue depth on each DC. A large queue indicates replication is falling behind, possibly due to bandwidth constraints or a high rate of AD changes.",
+      "Remediation": "1. Run: repadmin /queue <DC> to view pending replication operations. 2. Check inter-site link bandwidth and replication schedule in AD Sites and Services. 3. Increase site link replication frequency if needed. 4. Investigate bulk AD changes (large imports, password resets) that may be flooding the queue."
     },
     {
       "CheckId": "REP-007",
@@ -215,7 +227,9 @@
         }
       ],
       "IsEnabled": true,
-      "Version": "2.0"
+      "Version": "2.0",
+      "Help": "Counts total replication failures across all DC pairs. Persistent replication failures eventually cause the 60-day tombstone period to be exceeded, resulting in lingering objects.",
+      "Remediation": "1. Run: repadmin /replsummary to get the failure count summary. 2. Address each failing DC pair with: repadmin /showrepl <Source> <Destination>. 3. If failures exceed tombstone lifetime, run: repadmin /removelingeringobjects. 4. Consider increasing tombstone lifetime to 180 days (see BACKUP-004)."
     },
     {
       "CheckId": "REP-008",
@@ -242,7 +256,9 @@
         }
       ],
       "IsEnabled": true,
-      "Version": "2.0"
+      "Version": "2.0",
+      "Help": "Analyzes replication metadata to detect objects with unusually high version counters, which can indicate repeated conflicting updates or replication loops.",
+      "Remediation": "1. Identify objects with high version counts: repadmin /showobjmeta <DC> '<object DN>'. 2. Investigate who is repeatedly modifying these objects. 3. Check for conflicting updates from applications making frequent attribute changes. 4. Resolve replication conflicts if detected."
     },
     {
       "CheckId": "REP-009",
@@ -269,7 +285,9 @@
         }
       ],
       "IsEnabled": true,
-      "Version": "2.0"
+      "Version": "2.0",
+      "Help": "Detects objects that exist on some DCs but were deleted on others beyond the tombstone lifetime. Lingering objects cause replication conflicts and authentication anomalies for those accounts.",
+      "Remediation": "1. Run: repadmin /removelingeringobjects <TargetDC> <SourceDC> <NC DN> /Advisory_Mode first. 2. After reviewing, run without /Advisory_Mode to remove. 3. Enable Strict Replication Consistency to prevent future lingering objects: repadmin /regkey <DC> +strict. 4. Investigate why replication was suspended long enough for tombstone lifetime to expire."
     },
     {
       "CheckId": "REP-010",
@@ -310,7 +328,9 @@
         }
       ],
       "IsEnabled": true,
-      "Version": "2.0"
+      "Version": "2.0",
+      "Help": "Verifies that replication connection objects exist between DCs in the same site and across sites. Missing connection objects mean replication will not occur between the affected DC pair.",
+      "Remediation": "1. Run: repadmin /showconn to list all connection objects. 2. Allow KCC to regenerate connections: repadmin /kcc <DC>. 3. In AD Sites and Services, manually create connection objects if KCC fails to do so. 4. Ensure all DCs are in the correct AD Site (based on IP subnet)."
     },
     {
       "CheckId": "REP-011",
@@ -344,7 +364,9 @@
         }
       ],
       "IsEnabled": true,
-      "Version": "2.0"
+      "Version": "2.0",
+      "Help": "Checks for Knowledge Consistency Checker (KCC) errors in the Directory Service event log. KCC is responsible for automatically generating replication topology - errors mean the replication topology may be incomplete.",
+      "Remediation": "1. Review Directory Service event log for Event IDs 1311, 1265, 1925, 1926. 2. Run: repadmin /kcc <DC> to force KCC to recalculate topology. 3. Verify all DCs are reachable from all other DCs. 4. Check for orphaned connection objects in AD Sites and Services."
     },
     {
       "CheckId": "REP-012",
@@ -371,7 +393,9 @@
         }
       ],
       "IsEnabled": true,
-      "Version": "2.0"
+      "Version": "2.0",
+      "Help": "Reviews AD site link configuration including replication intervals and costs. Misconfigured site links (very long intervals or very high costs) cause slow convergence of AD changes across sites.",
+      "Remediation": "1. Open AD Sites and Services > Inter-Site Transports > IP. 2. Review each site link - recommended replication interval is 15-60 minutes. 3. Set site link costs proportional to WAN bandwidth (lower cost = preferred path). 4. Ensure site links create a connected graph - every site must be reachable from every other site."
     },
     {
       "CheckId": "REP-013",
@@ -391,7 +415,9 @@
         }
       ],
       "IsEnabled": true,
-      "Version": "2.0"
+      "Version": "2.0",
+      "Help": "Checks for manually configured preferred bridgehead servers. Manual bridgeheads create a single point of failure - if the bridgehead DC goes offline, inter-site replication stops completely.",
+      "Remediation": "1. In AD Sites and Services, expand each site and check server properties for bridgehead entries. 2. Remove manual preferred bridgehead designations to let KCC choose automatically. 3. If bridgeheads are required, configure at least two per site per transport protocol. 4. Monitor bridgehead DCs closely and ensure they are reliable and well-resourced."
     },
     {
       "CheckId": "REP-014",
@@ -411,7 +437,9 @@
         }
       ],
       "IsEnabled": true,
-      "Version": "2.0"
+      "Version": "2.0",
+      "Help": "Analyzes site link replication schedules to identify overly restrictive windows that limit replication availability. Schedules with less than 50% availability delay convergence of AD changes.",
+      "Remediation": "1. In AD Sites and Services, right-click the site link and select Properties > Change Schedule. 2. Enable replication during business hours at minimum. 3. For critical links use 24x7 availability. 4. Coordinate schedule changes with network team to avoid conflict with backup windows."
     },
     {
       "CheckId": "REP-015",
@@ -438,7 +466,9 @@
         }
       ],
       "IsEnabled": true,
-      "Version": "2.0"
+      "Version": "2.0",
+      "Help": "Verifies that each DC holds all expected naming contexts (Domain NC, Configuration NC, Schema NC). Missing naming contexts indicate a partially failed DC promotion or serious replication issue.",
+      "Remediation": "1. Run: repadmin /showrepl <DC> to check which NCs are replicating. 2. Run: repadmin /syncall <DC> /Ade to pull all NCs from replication partners. 3. If an NC is missing after sync attempts, consider demoting and re-promoting the DC. 4. Ensure the DC has sufficient disk space for the full AD database."
     }
   ]
 }

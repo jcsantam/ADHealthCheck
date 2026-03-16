@@ -28,7 +28,9 @@
         }
       ],
       "IsEnabled": true,
-      "Version": "2.0"
+      "Version": "2.0",
+      "Help": "Checks that all five FSMO roles (PDC Emulator, RID Master, Infrastructure Master, Schema Master, Domain Naming Master) are held by reachable DCs and follow best-practice placement guidelines.",
+      "Remediation": "1. Run: netdom query fsmo to identify current role holders. 2. Verify all role holders are reachable and healthy. 3. If a role holder is unreachable, seize the role using ntdsutil: 'roles' then 'seize <role name>'. 4. Place PDC Emulator and RID Master on the same well-resourced DC; keep Infrastructure Master on a non-GC DC in multi-domain forests."
     },
     {
       "CheckId": "OPS-002",
@@ -62,7 +64,9 @@
         }
       ],
       "IsEnabled": true,
-      "Version": "2.0"
+      "Version": "2.0",
+      "Help": "Verifies that all FSMO role holders are online and responding. An unavailable PDC Emulator affects password changes and time sync; an unavailable RID Master prevents new object creation once the current RID pool is exhausted.",
+      "Remediation": "1. Test connectivity to the role holder: Test-NetConnection -ComputerName <RoleHolder> -Port 389. 2. If the DC is down, bring it back online or transfer the role to another DC: Move-ADDirectoryServerOperationMasterRole -Identity <DC> -OperationMasterRole <role>. 3. If the DC cannot be recovered, seize the role using ntdsutil - never bring the original holder back online after seizing. 4. Monitor role holder DCs closely to prevent recurrence."
     },
     {
       "CheckId": "OPS-003",
@@ -89,7 +93,9 @@
         }
       ],
       "IsEnabled": true,
-      "Version": "2.0"
+      "Version": "2.0",
+      "Help": "Validates that all configured domain and forest trusts are functioning correctly. Broken trusts prevent users in one domain from accessing resources in the trusted domain, and can cause authentication failures for cross-domain applications.",
+      "Remediation": "1. Test the trust from both sides: netdom verify <TrustedDomain> /domain:<TrustingDomain>. 2. Reset the trust password: netdom trust <TrustedDomain> /domain:<TrustingDomain> /resetSecureChannel. 3. If trust is completely broken, delete and recreate it from Active Directory Domains and Trusts. 4. Ensure DNS name resolution works between both domains before recreating."
     },
     {
       "CheckId": "OPS-004",
@@ -116,7 +122,9 @@
         }
       ],
       "IsEnabled": true,
-      "Version": "2.0"
+      "Version": "2.0",
+      "Help": "Checks that SID filtering (also called SID quarantine) is enabled on external trusts. Disabling SID filtering allows an attacker who compromises a trusted domain to use SID history to escalate privileges in the trusting domain.",
+      "Remediation": "1. Check current SID filtering status: netdom trust <TrustedDomain> /domain:<TrustingDomain> /quarantine. 2. Enable SID filtering on external trusts: netdom trust <TrustedDomain> /domain:<TrustingDomain> /quarantine:yes. 3. SID filtering is enabled by default on external trusts - only disable if required for SID history migration. 4. Forest trusts use SID filtering at the forest boundary by default - verify this is not disabled."
     },
     {
       "CheckId": "OPS-005",
@@ -164,7 +172,9 @@
         }
       ],
       "IsEnabled": true,
-      "Version": "2.0"
+      "Version": "2.0",
+      "Help": "Reviews the AD site and subnet configuration to detect missing subnets, orphaned sites, and site link issues. Incorrect site topology causes clients to authenticate against distant DCs, increasing latency and WAN traffic.",
+      "Remediation": "1. Open Active Directory Sites and Services and review sites, subnets, and site links. 2. Add missing subnet definitions: New-ADReplicationSubnet -Name '<IP/prefix>' -Site '<SiteName>'. 3. Remove empty sites that no longer have DCs: Remove-ADReplicationSite -Identity '<SiteName>'. 4. Ensure every physical network segment has a corresponding AD subnet assigned to the correct site."
     }
   ]
 }

@@ -28,7 +28,9 @@
         }
       ],
       "IsEnabled": true,
-      "Version": "2.0"
+      "Version": "2.0",
+      "Help": "Verifies that essential AD-related Windows services are running on each DC (NTDS, NETLOGON, DNS, KDC, W32Time, etc.). Stopped critical services directly impact authentication and replication.",
+      "Remediation": "1. Identify stopped services: Get-Service NTDS,NETLOGON,DNS,KDC,W32Time | Where-Object {$_.Status -ne 'Running'}. 2. Start stopped services: Start-Service <ServiceName>. 3. Set startup type to Automatic if needed: Set-Service <ServiceName> -StartupType Automatic. 4. If a service fails to start, check Event Viewer Application and System logs for errors."
     },
     {
       "CheckId": "DC-002",
@@ -64,7 +66,9 @@
         }
       ],
       "IsEnabled": true,
-      "Version": "2.0"
+      "Version": "2.0",
+      "Help": "Monitors free disk space on all DC volumes, particularly the NTDS database and SYSVOL volumes. Insufficient disk space can cause AD to stop accepting writes and prevent backup completion.",
+      "Remediation": "1. Identify large files consuming space with: Get-ChildItem C:\\ -Recurse | Sort-Object Length -Descending | Select-Object -First 20. 2. Clean up old log files, temp files, and Windows Update cache (cleanmgr). 3. If NTDS volume is full, perform offline defragmentation to recover white space. 4. Consider expanding the volume or moving NTDS to a larger disk."
     },
     {
       "CheckId": "DC-003",
@@ -91,7 +95,9 @@
         }
       ],
       "IsEnabled": true,
-      "Version": "2.0"
+      "Version": "2.0",
+      "Help": "Verifies that all domain controllers are reachable via network connectivity tests. Unreachable DCs cannot service authentication requests or participate in replication.",
+      "Remediation": "1. Verify the DC is powered on and network cables are connected. 2. Check firewall rules - AD requires TCP/UDP 389, 636, 3268, 445, 135, 49152-65535. 3. Verify DNS resolution for the DC's FQDN. 4. Check if the NETLOGON and Active Directory Domain Services services are running."
     },
     {
       "CheckId": "DC-004",
@@ -127,7 +133,9 @@
         }
       ],
       "IsEnabled": true,
-      "Version": "2.0"
+      "Version": "2.0",
+      "Help": "Monitors CPU usage on each DC. Sustained high CPU on a DC causes slow authentication, LDAP query timeouts, and replication delays.",
+      "Remediation": "1. Identify top CPU-consuming processes with Task Manager or: Get-Process | Sort-Object CPU -Descending | Select-Object -First 10. 2. Check for runaway antivirus scans - exclude NTDS.dit and SYSVOL from real-time scanning. 3. Check for LDAP query storms with: netstat -an | findstr :389. 4. Consider adding additional DCs to distribute the authentication load."
     },
     {
       "CheckId": "DC-005",
@@ -163,7 +171,9 @@
         }
       ],
       "IsEnabled": true,
-      "Version": "2.0"
+      "Version": "2.0",
+      "Help": "Checks available memory on each DC. Low memory causes LSASS paging, slow LDAP responses, and increased authentication latency across the environment.",
+      "Remediation": "1. Identify memory consumers: Get-Process | Sort-Object WorkingSet -Descending | Select-Object -First 10. 2. Ensure LSASS is not being paged - check Performance Monitor for 'Memory\\Pages/sec'. 3. Disable unnecessary services and roles on the DC. 4. Add RAM to the server or migrate roles to reduce memory pressure."
     },
     {
       "CheckId": "DC-006",
@@ -199,7 +209,9 @@
         }
       ],
       "IsEnabled": true,
-      "Version": "2.0"
+      "Version": "2.0",
+      "Help": "Monitors disk I/O latency on DC volumes, particularly where NTDS.dit resides. High latency (over 20ms) on the AD database disk causes slow LDAP responses and authentication delays.",
+      "Remediation": "1. Identify high-latency disks with Performance Monitor counters: LogicalDisk\\Avg. Disk sec/Read and Write. 2. Ensure NTDS.dit is on a dedicated volume, not sharing with OS or page file. 3. Check for disk fragmentation and defragment if needed. 4. Consider moving NTDS.dit to faster storage (SSD). 5. Exclude NTDS.dit and logs from antivirus real-time scanning."
     },
     {
       "CheckId": "DC-007",
@@ -235,7 +247,9 @@
         }
       ],
       "IsEnabled": true,
-      "Version": "2.0"
+      "Version": "2.0",
+      "Help": "Tests LDAP connectivity and response time to each DC on ports 389 (LDAP) and 636 (LDAPS). Slow or failed LDAP responses indicate DC overload or network issues affecting all AD-dependent applications.",
+      "Remediation": "1. Check DC CPU and memory utilization (see DC-004, DC-005). 2. Test LDAP manually: ldp.exe or Test-NetConnection -ComputerName DC01 -Port 389. 3. Review LDAP query efficiency - expensive queries appear in Event ID 1644 in the Directory Service log. 4. Enable LDAP diagnostic logging to identify problematic clients."
     },
     {
       "CheckId": "DC-008",
@@ -269,7 +283,9 @@
         }
       ],
       "IsEnabled": true,
-      "Version": "2.0"
+      "Version": "2.0",
+      "Help": "Tests end-to-end Kerberos authentication by requesting a service ticket to each DC. Kerberos failures affect all domain-joined computers and cause widespread authentication errors.",
+      "Remediation": "1. Check time synchronization - Kerberos requires clocks within 5 minutes: w32tm /stripchart /computer:<DC>. 2. Verify the KDC service is running: Get-Service KDC. 3. Check DNS name resolution for the DC. 4. Review KDC errors in Event Viewer Security log. 5. Ensure the krbtgt account password is not corrupted."
     },
     {
       "CheckId": "DC-009",
@@ -303,7 +319,9 @@
         }
       ],
       "IsEnabled": true,
-      "Version": "2.0"
+      "Version": "2.0",
+      "Help": "Verifies that each DC configured as a Global Catalog is advertising the GC service via DNS. Missing GC SRV records prevent cross-domain lookups and Universal Group membership resolution.",
+      "Remediation": "1. On the DC run: nltest /dsgetdc:<domain> /gc to verify GC availability. 2. If GC is not advertising, restart the NTDS service: Stop-Service NTDS -Force; Start-Service NTDS. 3. Verify GC configuration in Active Directory Sites and Services. 4. Check DNS for _gc._tcp SRV records under the forest root zone."
     },
     {
       "CheckId": "DC-010",
@@ -337,7 +355,9 @@
         }
       ],
       "IsEnabled": true,
-      "Version": "2.0"
+      "Version": "2.0",
+      "Help": "Checks SSL/TLS certificates on each DC for upcoming expiration. Expired certificates cause LDAPS connection failures and may break smart card authentication and PKI-dependent services.",
+      "Remediation": "1. Identify expiring certificates: Get-ChildItem Cert:\\LocalMachine\\My | Where-Object {$_.NotAfter -lt (Get-Date).AddDays(30)}. 2. If using an internal CA, request a new certificate from your CA. 3. If using auto-enrollment, check the Certificate Templates and GPO enrollment settings. 4. After renewal, verify LDAPS works: Test-NetConnection -ComputerName DC01 -Port 636."
     },
     {
       "CheckId": "DC-011",
@@ -378,7 +398,9 @@
         }
       ],
       "IsEnabled": true,
-      "Version": "2.0"
+      "Version": "2.0",
+      "Help": "Scans the System event log on each DC for critical and error-level events in the past 24 hours. High error counts indicate underlying hardware, driver, or service issues that need investigation.",
+      "Remediation": "1. Review critical events in Event Viewer: System log, Level = Critical or Error. 2. Common sources: disk errors (source: disk), network errors (source: NDIS), service crashes (source: Service Control Manager). 3. Search the Event ID on Microsoft Learn for specific guidance. 4. Address hardware warnings promptly - failing disks or memory can corrupt the AD database."
     },
     {
       "CheckId": "DC-012",
@@ -398,7 +420,9 @@
         }
       ],
       "IsEnabled": true,
-      "Version": "2.0"
+      "Version": "2.0",
+      "Help": "Checks that all enabled network adapters on each DC show as connected. A disconnected adapter can isolate the DC from clients or replication partners depending on the network layout.",
+      "Remediation": "1. Check physical cable connections on the server. 2. Verify NIC configuration: Get-NetAdapter | Where-Object {$_.Status -ne 'Up'}. 3. Check for driver issues in Device Manager. 4. If using NIC teaming, verify team member status. 5. Check switch port configuration for the DC's port."
     },
     {
       "CheckId": "DC-013",
@@ -432,7 +456,9 @@
         }
       ],
       "IsEnabled": true,
-      "Version": "2.0"
+      "Version": "2.0",
+      "Help": "Monitors memory consumption of the LSASS process, which handles all AD authentication. Excessive LSASS memory (over 1GB) indicates a large AD database, many trusts, or a potential memory leak.",
+      "Remediation": "1. If LSASS exceeds 2GB, check for LSASS memory leaks in recent Windows updates. 2. Large LSASS memory is normal on DCs with millions of objects - add RAM. 3. Reduce the number of trusts if possible. 4. Apply Windows security patches - some versions have LSASS memory leak fixes. 5. Consider enabling Credential Guard to reduce LSASS attack surface."
     }
   ]
 }

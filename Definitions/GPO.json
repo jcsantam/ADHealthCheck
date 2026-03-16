@@ -56,7 +56,9 @@
         }
       ],
       "IsEnabled": true,
-      "Version": "2.0"
+      "Version": "2.0",
+      "Help": "Detects GPOs that exist in AD but not SYSVOL, or vice versa. Orphaned GPOs indicate incomplete GPO deletion or SYSVOL replication failures and can cause policy application errors.",
+      "Remediation": "1. For AD-only orphans: delete via GPMC or Remove-GPO cmdlet. 2. For SYSVOL-only orphans: manually delete the GUID folder from SYSVOL\\Policies on all DCs. 3. Investigate SYSVOL replication health if many orphans exist: dfsrdiag ReplicationState."
     },
     {
       "CheckId": "GPO-002",
@@ -90,7 +92,9 @@
         }
       ],
       "IsEnabled": true,
-      "Version": "2.0"
+      "Version": "2.0",
+      "Help": "Checks that GPO version numbers are consistent between the AD object (GPC) and the SYSVOL folder (GPT). Version mismatches mean clients may apply outdated policy settings.",
+      "Remediation": "1. Force SYSVOL replication: dfsrdiag SyncNow /partner:<DC> /RGName:'Domain System Volume'. 2. Check DFSR replication health: Get-DfsrBacklog -DestinationComputerName <DC>. 3. If a specific GPO is persistently mismatched, delete and recreate it. 4. Review DFSR event log for replication errors."
     },
     {
       "CheckId": "GPO-003",
@@ -117,7 +121,9 @@
         }
       ],
       "IsEnabled": true,
-      "Version": "2.0"
+      "Version": "2.0",
+      "Help": "Verifies that SYSVOL content (scripts, GPO templates) is consistent across all domain controllers. SYSVOL inconsistency causes clients to receive different policy depending on which DC they authenticate against.",
+      "Remediation": "1. Run: dfsrdiag ReplicationState on each DC to check DFSR sync status. 2. Force full SYSVOL sync: Set-DfsrServiceConfiguration -ComputerName <DC> -GlobalSettings. 3. If DFSR is not used (older domains), check FRS replication: ntfrsutl ds <DC>. 4. In severe cases, perform a non-authoritative or authoritative SYSVOL restore."
     },
     {
       "CheckId": "GPO-004",
@@ -144,7 +150,9 @@
         }
       ],
       "IsEnabled": true,
-      "Version": "2.0"
+      "Version": "2.0",
+      "Help": "Verifies that GPO permissions allow Authenticated Users to read and apply policy. Incorrect permissions can prevent GPOs from applying to intended users and computers.",
+      "Remediation": "1. In GPMC, right-click the GPO and check Delegation tab. 2. Ensure 'Authenticated Users' has Read and Apply Group Policy permissions. 3. If using security filtering, ensure the target group has Apply permission. 4. Run: Get-GPPermission -Name '<GPOName>' -All to review permissions via PowerShell."
     },
     {
       "CheckId": "GPO-005",
@@ -171,7 +179,9 @@
         }
       ],
       "IsEnabled": true,
-      "Version": "2.0"
+      "Version": "2.0",
+      "Help": "Checks for WMI filters attached to GPOs and validates their syntax. Invalid or orphaned WMI filters waste resources and filters with syntax errors prevent GPO application.",
+      "Remediation": "1. Open GPMC and review GPOs listed as having WMI filters. 2. Test WMI filters manually: Get-WmiObject -Query '<WQL>' on a target machine. 3. Delete orphaned WMI filters via ADSI Edit: CN=SOM,CN=WMIPolicy,CN=System,DC=... 4. Fix syntax errors - WMI filters require valid WQL with SELECT and FROM clauses."
     },
     {
       "CheckId": "GPO-007",
@@ -198,7 +208,9 @@
         }
       ],
       "IsEnabled": true,
-      "Version": "2.0"
+      "Version": "2.0",
+      "Help": "Detects GPOs that have no computer or user settings configured (both version counters are zero). Empty GPOs waste processing time during Group Policy refresh on all affected clients.",
+      "Remediation": "1. In GPMC identify empty GPOs (no settings icon in the details view). 2. Either add required settings to the GPO or delete it. 3. Before deleting, verify the GPO is not linked anywhere: right-click the GPO and check Links. 4. Delete via GPMC or: Remove-GPO -Name '<GPOName>' -Domain <domain>."
     },
     {
       "CheckId": "GPO-008",
@@ -232,7 +244,9 @@
         }
       ],
       "IsEnabled": true,
-      "Version": "2.0"
+      "Version": "2.0",
+      "Help": "Finds GPO links that have been disabled at the link level. Disabled links are often left after troubleshooting and represent cleanup debt. They do not apply policy but still appear in GPMC causing confusion.",
+      "Remediation": "1. In GPMC, navigate to each OU with disabled links (shown with a red X). 2. Right-click the disabled link and either re-enable it or delete it. 3. If the link was disabled intentionally, add a comment explaining why. 4. Via PowerShell: Set-GPLink -Name '<GPO>' -Target '<OU DN>' -LinkEnabled Yes or remove the link."
     },
     {
       "CheckId": "GPO-009",
@@ -259,7 +273,9 @@
         }
       ],
       "IsEnabled": true,
-      "Version": "2.0"
+      "Version": "2.0",
+      "Help": "Identifies OUs where Group Policy inheritance has been blocked. Blocked inheritance means higher-level GPOs (including security baselines) do not apply to objects in that OU and its children.",
+      "Remediation": "1. In GPMC, OUs with blocked inheritance show a blue circle with exclamation icon. 2. Right-click the OU and uncheck 'Block Inheritance' unless specifically required. 3. Use GPO Enforced (No Override) at the domain/site level to push critical policies through blocked inheritance. 4. Document all intentionally blocked OUs and review quarterly."
     },
     {
       "CheckId": "GPO-010",
@@ -293,7 +309,9 @@
         }
       ],
       "IsEnabled": true,
-      "Version": "2.0"
+      "Version": "2.0",
+      "Help": "Checks for duplicate GPO links (same GPO linked multiple times to the same OU) and OUs with excessive numbers of links. Duplicate links waste processing cycles and can cause unexpected policy application order.",
+      "Remediation": "1. In GPMC, review the Linked Group Policy Objects tab for each flagged OU. 2. Remove duplicate links by right-clicking and selecting Delete Link. 3. For OUs with many links, consolidate GPOs or reorganize the OU structure. 4. Consider using GPO Starter GPOs or merging multiple small GPOs to reduce link count."
     },
     {
       "CheckId": "GPO-011",
@@ -313,7 +331,9 @@
         }
       ],
       "IsEnabled": true,
-      "Version": "2.0"
+      "Version": "2.0",
+      "Help": "Detects GPOs from one domain linked to OUs in another domain in a multi-domain forest. Cross-domain GPO links create dependencies between domains and can cause policy application delays if the source domain DC is unreachable.",
+      "Remediation": "1. Identify cross-domain links in GPMC by examining GPO GUIDs vs. the source domain. 2. Recreate the GPO in the target domain with equivalent settings. 3. Update the OU link to point to the newly created local GPO. 4. Delete the cross-domain link after validating the replacement GPO applies correctly."
     }
   ]
 }
