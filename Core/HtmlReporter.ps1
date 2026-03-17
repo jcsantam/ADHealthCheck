@@ -77,6 +77,29 @@ function Export-EnhancedHtmlReport {
     $highIssues     = @($allIssues | Where-Object { $_.Severity -eq 'High' })
     $mediumIssues   = @($allIssues | Where-Object { $_.Severity -eq 'Medium' })
     $lowIssues      = @($allIssues | Where-Object { $_.Severity -eq 'Low' })
+
+    # Severity-driven score badge (overrides numeric score color)
+    if ($criticalIssues.Count -gt 0) {
+        $scoreStatusLabel = 'CRITICAL'
+        $scoreStatusColor = '#dc3545'
+        $scoreRingBg      = 'rgba(220,53,69,0.12)'
+    } elseif ($highIssues.Count -gt 0) {
+        $scoreStatusLabel = 'HIGH'
+        $scoreStatusColor = '#e6a817'
+        $scoreRingBg      = 'rgba(230,168,23,0.12)'
+    } elseif ($mediumIssues.Count -gt 0) {
+        $scoreStatusLabel = 'MEDIUM'
+        $scoreStatusColor = '#fd7e14'
+        $scoreRingBg      = 'rgba(253,126,20,0.12)'
+    } elseif ($lowIssues.Count -gt 0) {
+        $scoreStatusLabel = 'LOW'
+        $scoreStatusColor = '#17a2b8'
+        $scoreRingBg      = 'rgba(23,162,184,0.12)'
+    } else {
+        $scoreStatusLabel = 'HEALTHY'
+        $scoreStatusColor = '#28a745'
+        $scoreRingBg      = 'rgba(40,167,69,0.12)'
+    }
     
     # Build HTML
     $html = @"
@@ -154,8 +177,8 @@ function Export-EnhancedHtmlReport {
             height: 200px;
             border-radius: 50%;
             background: conic-gradient(
-                $scoreColor 0deg,
-                $scoreColor calc($($Scores.OverallScore) * 3.6deg),
+                $scoreStatusColor 0deg,
+                $scoreStatusColor calc($($Scores.OverallScore) * 3.6deg),
                 #e9ecef calc($($Scores.OverallScore) * 3.6deg),
                 #e9ecef 360deg
             );
@@ -168,24 +191,34 @@ function Export-EnhancedHtmlReport {
         .score-inner {
             width: 160px;
             height: 160px;
-            background: white;
+            background: $scoreRingBg;
             border-radius: 50%;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
+            gap: 2px;
         }
-        
+
+        .score-status-label {
+            font-size: 1.35em;
+            font-weight: 800;
+            color: $scoreStatusColor;
+            letter-spacing: 1px;
+            line-height: 1;
+        }
+
         .score-value {
-            font-size: 3em;
-            font-weight: bold;
-            color: $scoreColor;
+            font-size: 1.15em;
+            font-weight: 600;
+            color: #555;
+            margin-top: 4px;
         }
-        
+
         .score-rating {
-            font-size: 1.1em;
-            color: #666;
-            margin-top: 5px;
+            font-size: 0.75em;
+            color: #999;
+            margin-top: 2px;
         }
         
         /* ===== SUMMARY CARDS ===== */
@@ -542,7 +575,8 @@ function Export-EnhancedHtmlReport {
             <div class="score-gauge">
                 <div class="score-circle">
                     <div class="score-inner">
-                        <div class="score-value">$($Scores.OverallScore)</div>
+                        <div class="score-status-label">$scoreStatusLabel</div>
+                        <div class="score-value">$($Scores.OverallScore)/100</div>
                         <div class="score-rating">$scoreRating</div>
                     </div>
                 </div>
