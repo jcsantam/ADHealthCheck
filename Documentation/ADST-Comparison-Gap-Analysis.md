@@ -1,583 +1,255 @@
-# ADST 5.8 vs AD Health Check - Gap Analysis Report
+# ADST 5.8 vs AD Health Check — Gap Analysis Report
 
-## 📋 **EXECUTIVE SUMMARY**
-
-**Microsoft Active Directory Support Tools (ADST) 5.8** performs approximately **635 health checks** across multiple categories.
-
-**AD Health Check (Current Version)** performs **10 critical checks** with foundation for expansion.
-
-**Coverage:** 1.6% complete (10 of 635 checks)
-**Priority Checks Covered:** 40% (10 of top 25 critical checks)
+**Last updated:** 2026-03-17
+**Previous version:** 2026-02-13 (10 checks / 1.6% — now obsolete)
 
 ---
 
-## 📊 **OVERALL COMPARISON**
+## Executive Summary
 
-| Category | ADST Checks | Our Checks | Coverage % | Priority |
-|----------|-------------|------------|------------|----------|
-| **Replication** | 147 | 3 | 2.0% | 🔴 Critical |
-| **DC Health** | 155 | 3 | 1.9% | 🔴 Critical |
-| **DNS** | 79 | 2 | 2.5% | 🟡 High |
-| **Group Policy** | 45 | 0 | 0% | 🟡 High |
-| **Time Sync** | 12 | 2 | 16.7% | 🔴 Critical |
-| **Backup/Tombstone** | 32 | 0 | 0% | 🟢 Medium |
-| **Security** | 89 | 0 | 0% | 🟡 High |
-| **Database** | 43 | 0 | 0% | 🟢 Medium |
-| **Operational** | 33 | 0 | 0% | 🟢 Low |
-| **TOTAL** | **635** | **10** | **1.6%** | - |
-
----
-
-## 🔍 **DETAILED CATEGORY BREAKDOWN**
-
-### **1. REPLICATION (147 Checks in ADST)**
-
-#### **✅ Implemented (3 checks)**
-| ID | Check Name | ADST Equivalent | Priority |
-|----|------------|-----------------|----------|
-| REP-001 | Replication Status | DCDiag /Test:Replications | Critical |
-| REP-002 | Replication Errors | Event Log 1655, 2042, 1311 | High |
-| REP-003 | USN Rollback Detection | Event Log 2095 | Critical |
-
-#### **❌ Missing Critical Checks (Top 20)**
-| Priority | Check Description | ADST Coverage |
-|----------|-------------------|---------------|
-| 🔴 Critical | Replication latency per NC | Yes - RepLatency |
-| 🔴 Critical | Inbound/Outbound queue length | Yes - ReplQueue |
-| 🔴 Critical | Failed replication attempts | Yes - ReplFailures |
-| 🔴 Critical | Metadata cleanup | Yes - MetadataCleanup |
-| 🔴 Critical | Lingering objects detection | Yes - LingeringObjects |
-| 🟡 High | Replication partner connectivity | Yes - ReplPartners |
-| 🟡 High | Knowledge Consistency Checker (KCC) | Yes - KCC |
-| 🟡 High | Site link topology | Yes - Topology |
-| 🟡 High | Bridgehead server selection | Yes - BridgeheadServer |
-| 🟡 High | ISTG (Inter-Site Topology Generator) | Yes - ISTG |
-| 🟡 High | Connection objects validation | Yes - ReplConnections |
-| 🟡 High | Replication schedule conflicts | Yes - ReplSchedule |
-| 🟡 High | SYSVOL replication (DFSR/FRS) | Yes - SYSVOL |
-| 🟡 High | Naming context replication | Yes - NCReplica |
-| 🟢 Medium | Replication metadata | Yes - ReplMetadata |
-| 🟢 Medium | Conflict resolution | Yes - ConflictResolution |
-| 🟢 Medium | Repadmin /showrepl equivalent | Yes - ReplStatus |
-| 🟢 Medium | Up-to-dateness vector | Yes - UTDVector |
-| 🟢 Medium | Replication stamps | Yes - ReplStamps |
-| 🟢 Medium | Change notification | Yes - ChangeNotify |
-
-**ADST Replication Coverage:**
-- Latency monitoring (per partition)
-- Queue analysis
-- Partner health
-- Topology validation
-- KCC errors
-- SYSVOL replication (both DFSR and FRS)
-- Metadata analysis
-- Lingering object detection
-- USN tracking
-- And 127+ more checks...
+| | ADST 5.8 | AD Health Check |
+|--|---------|-----------------|
+| Total checks | ~635 | **103** |
+| Coverage | 100% | **16.2%** |
+| Categories | 9 | 9 |
+| Report format | XML/text | Interactive HTML |
+| Parallelism | Sequential | RunspacePool (up to 20) |
+| Rules engine | Hardcoded | JSON-configurable |
+| Historical trending | None | SQLite database |
+| Help/Remediation inline | No | Yes — every check |
+| Open source | No | Yes |
+| Min OS supported | Server 2016 | Server 2012 R2+ |
 
 ---
 
-### **2. DC HEALTH (155 Checks in ADST)**
+## Coverage by Category
 
-#### **✅ Implemented (3 checks)**
-| ID | Check Name | ADST Equivalent | Priority |
-|----|------------|-----------------|----------|
-| DC-001 | Critical Services Status | DCDiag /Test:Services | Critical |
-| DC-002 | Disk Space | DCDiag /Test:DiskSpace | High |
-| DC-003 | DC Reachability | DCDiag /Test:Connectivity | High |
-
-#### **❌ Missing Critical Checks (Top 20)**
-| Priority | Check Description | ADST Coverage |
-|----------|-------------------|---------------|
-| 🔴 Critical | NTDS database integrity | Yes - DBCheck |
-| 🔴 Critical | LSASS memory usage | Yes - LSASSMem |
-| 🔴 Critical | CPU utilization sustained | Yes - CPU |
-| 🔴 Critical | Memory pressure | Yes - Memory |
-| 🔴 Critical | Disk I/O latency | Yes - DiskIO |
-| 🔴 Critical | Network adapter status | Yes - NetAdapters |
-| 🟡 High | Event log capacity | Yes - EventLogs |
-| 🟡 High | Certificate expiration | Yes - Certificates |
-| 🟡 High | SSL/TLS certificate validation | Yes - SSL |
-| 🟡 High | LDAP response time | Yes - LDAP |
-| 🟡 High | Kerberos functionality | Yes - Kerberos |
-| 🟡 High | Global catalog availability | Yes - GC |
-| 🟡 High | FSMO role placement | Yes - FSMO |
-| 🟡 High | DC locator (DCLocator) | Yes - DCLocator |
-| 🟡 High | Netlogon service health | Yes - NetLogon |
-| 🟢 Medium | Page file configuration | Yes - PageFile |
-| 🟢 Medium | Windows Update status | Yes - Updates |
-| 🟢 Medium | Antivirus exclusions | Yes - AVExclusions |
-| 🟢 Medium | IPv6 configuration | Yes - IPv6 |
-| 🟢 Medium | Power plan settings | Yes - PowerPlan |
-
-**ADST DC Health Coverage:**
-- Performance counters (CPU, Memory, Disk, Network)
-- Database integrity (NTDS.dit)
-- Service status (all AD-related services)
-- Certificate validation and expiration
-- Event log analysis (System, Application, Directory Service)
-- Network configuration
-- Security settings
-- Firewall rules
-- And 135+ more checks...
+| Category | ADST Checks | Implemented | Coverage | Remaining |
+|----------|-------------|-------------|----------|-----------|
+| Replication | 147 | 15 | 10.2% | 132 |
+| DC Health | 155 | 13 | 8.4% | 142 |
+| Security | 89 | 16 | 18.0% | 73 |
+| DNS | 79 | 12 | 15.2% | 67 |
+| Group Policy | 45 | 10 | 22.2% | 35 |
+| Database | 43 | 8 | 18.6% | 35 |
+| Operational | 33 | 15 | 45.5% | 18 |
+| Backup/Tombstone | 32 | 4 | 12.5% | 28 |
+| Time Sync | 12 | 10 | 83.3% | 2 |
+| **TOTAL** | **635** | **103** | **16.2%** | **532** |
 
 ---
 
-### **3. DNS (79 Checks in ADST)**
+## What Is Implemented
 
-#### **✅ Implemented (2 checks)**
-| ID | Check Name | ADST Equivalent | Priority |
-|----|------------|-----------------|----------|
-| DNS-001 | Critical SRV Records | DCDiag /Test:RegisterInDNS | Critical |
-| DNS-002 | DNS Zone Health | DNSLint equivalent | Medium |
+### Replication (15/147) — REP-001 to REP-015
 
-#### **❌ Missing Critical Checks (Top 15)**
-| Priority | Check Description | ADST Coverage |
-|----------|-------------------|---------------|
-| 🔴 Critical | DNS forwarders configuration | Yes - DNSForwarders |
-| 🔴 Critical | Root hints validation | Yes - RootHints |
-| 🟡 High | DNS zone transfers | Yes - ZoneTransfer |
-| 🟡 High | Dynamic update security | Yes - DynUpdate |
-| 🟡 High | Scavenging configuration | Yes - Scavenging |
-| 🟡 High | Aging settings | Yes - Aging |
-| 🟡 High | Reverse lookup zones | Yes - ReverseLookup |
-| 🟡 High | Conditional forwarders | Yes - ConditionalFwd |
-| 🟡 High | DNS recursion settings | Yes - Recursion |
-| 🟢 Medium | Cache poisoning protection | Yes - CachePoisoning |
-| 🟢 Medium | DNSSEC configuration | Yes - DNSSEC |
-| 🟢 Medium | Round-robin settings | Yes - RoundRobin |
-| 🟢 Medium | Netmask ordering | Yes - NetmaskOrder |
-| 🟢 Medium | Listen addresses | Yes - ListenAddr |
-| 🟢 Medium | Query response rate limiting | Yes - RRL |
+| ID | Check | ADST Equivalent |
+|----|-------|-----------------|
+| REP-001 | Replication Status | DCDiag /Test:Replications |
+| REP-002 | Replication Errors | Event IDs 1655, 2042, 1311 |
+| REP-003 | USN Rollback Detection | Event ID 2095 |
+| REP-004 | Replication Latency | repadmin /showrepl latency |
+| REP-005 | SYSVOL Replication | DFSR/FRS health |
+| REP-006 | Replication Queue | repadmin /queue |
+| REP-007 | Failed Replications | repadmin /replsummary failures |
+| REP-008 | Metadata Consistency | Phantom DC / orphaned metadata |
+| REP-009 | Lingering Objects | repadmin /removelingeringobjects check |
+| REP-010 | Connection Objects | Auto vs. manual connection validation |
+| REP-011 | KCC Errors | Event IDs 1311, 1265 KCC failures |
+| REP-012 | Site Link Topology | Site link cost/schedule validation |
+| REP-013 | Bridgehead Server Health | Preferred bridgehead availability |
+| REP-014 | Replication Schedule Conflicts | Overlapping/zero-window schedules |
+| REP-015 | Naming Context Validation | All NCs present on all DCs |
 
-**ADST DNS Coverage:**
-- All SRV record validation (_ldap, _kerberos, _gc, _kpasswd, _ldap._tcp.dc._msdcs, etc.)
-- Zone configuration (AD-integrated, primary, secondary)
-- Forwarders and root hints
-- Scavenging and aging
-- Security settings
-- Performance metrics
-- And 64+ more checks...
+### DC Health (13/155) — DC-001 to DC-013
 
----
+| ID | Check | ADST Equivalent |
+|----|-------|-----------------|
+| DC-001 | Critical Services Status | DCDiag /Test:Services |
+| DC-002 | Disk Space | DCDiag /Test:DiskSpace |
+| DC-003 | DC Reachability | DCDiag /Test:Connectivity |
+| DC-004 | CPU Utilization | Performance counter CPU% |
+| DC-005 | Memory Pressure | Available memory / commit ratio |
+| DC-006 | Disk IO Latency | Avg disk sec/transfer |
+| DC-007 | LDAP Response Time | LDAP ping latency |
+| DC-008 | Kerberos Functionality | TGT request test |
+| DC-009 | Global Catalog Availability | GC port 3268/3269 test |
+| DC-010 | Certificate Expiration | DC/KDC cert chain and expiry |
+| DC-011 | Event Log Critical Errors | System/Application critical events |
+| DC-012 | Network Adapter Status | NIC status, duplex, speed |
+| DC-013 | LSASS Memory Usage | lsass.exe private bytes |
 
-### **4. GROUP POLICY (45 Checks in ADST)**
+### Security (16/89) — SEC-001 to SEC-016
 
-#### **✅ Implemented (0 checks)**
-None currently implemented.
+| ID | Check | ADST Equivalent |
+|----|-------|-----------------|
+| SEC-001 | Stale Computer Accounts | StaleComputers |
+| SEC-002 | Privileged Account Audit | PrivGroups |
+| SEC-003 | Krbtgt Password Age | KrbtgtPwd |
+| SEC-004 | DSRM Password Age | DSRMPwd |
+| SEC-005 | Stale User Accounts | StaleUsers |
+| SEC-006 | Password Policy | PwdPolicy |
+| SEC-007 | SPN Conflicts | SPNDuplicates |
+| SEC-008 | Delegation Configuration | Delegation |
+| SEC-009 | Kerberos Policy | KerberosPolicy |
+| SEC-010 | AdminSDHolder Integrity | AdminSDHolder |
+| SEC-011 | LAPS Deployment | LAPS |
+| SEC-012 | Protected Users Group | ProtectedUsers |
+| SEC-013 | Audit Policy Configuration | AuditPolicy |
+| SEC-014 | Service Account Permissions | SvcAccounts |
+| SEC-015 | Stale Computer Accounts (Detailed) | StaleComputers (detailed) |
+| SEC-016 | Schema Admins Membership | SchemaAdmins |
 
-#### **❌ Missing Critical Checks (All 15 Top Priority)**
-| Priority | Check Description | ADST Coverage |
-|----------|-------------------|---------------|
-| 🔴 Critical | GPO replication status | Yes - GPORepl |
-| 🔴 Critical | SYSVOL FRS/DFSR health | Yes - SYSVOL |
-| 🟡 High | GPO version mismatch (AD vs SYSVOL) | Yes - GPOVersion |
-| 🟡 High | Orphaned GPOs | Yes - OrphanedGPO |
-| 🟡 High | GPO permissions | Yes - GPOPerms |
-| 🟡 High | Empty GPOs | Yes - EmptyGPO |
-| 🟡 High | Disabled GPO links | Yes - DisabledLinks |
-| 🟡 High | Blocked inheritance | Yes - BlockedInherit |
-| 🟡 High | Security filtering | Yes - SecFiltering |
-| 🟡 High | WMI filtering | Yes - WMIFilter |
-| 🟢 Medium | GPO naming convention | Yes - GPONaming |
-| 🟢 Medium | GPO link order | Yes - LinkOrder |
-| 🟢 Medium | Loopback processing | Yes - Loopback |
-| 🟢 Medium | Cross-domain GPO links | Yes - CrossDomain |
-| 🟢 Medium | GPO comment documentation | Yes - GPOComments |
+### DNS (12/79) — DNS-001 to DNS-012
 
-**ADST GPO Coverage:**
-- GPO replication (AD + SYSVOL consistency)
-- Version mismatches
-- Orphaned GPOs
-- Empty GPOs
-- Link validation
-- Permission analysis
-- WMI filter validation
-- And 30+ more checks...
+| ID | Check | ADST Equivalent |
+|----|-------|-----------------|
+| DNS-001 | Critical SRV Records | DCDiag /Test:RegisterInDNS |
+| DNS-002 | DNS Zone Health | DNSLint |
+| DNS-003 | DNS Forwarders | DNSForwarders |
+| DNS-004 | Root Hints Configuration | RootHints |
+| DNS-005 | DNS Scavenging | Scavenging |
+| DNS-006 | Zone Transfer Settings | ZoneTransfer |
+| DNS-007 | Dynamic Update Security | DynUpdate |
+| DNS-008 | DNS Aging Configuration | Aging |
+| DNS-009 | Reverse Lookup Zones | ReverseLookup |
+| DNS-010 | Conditional Forwarders | ConditionalFwd |
+| DNS-011 | DNS Recursion Settings | Recursion |
+| DNS-012 | DNSSEC Configuration | DNSSEC |
 
----
+### Group Policy (10/45) — GPO-001 to GPO-011 (no GPO-006)
 
-### **5. TIME SYNCHRONIZATION (12 Checks in ADST)**
+| ID | Check |
+|----|-------|
+| GPO-001 | Orphaned GPO Detection |
+| GPO-002 | GPO Replication Consistency |
+| GPO-003 | SYSVOL Consistency |
+| GPO-004 | GPO Permissions |
+| GPO-005 | WMI Filter Validation |
+| GPO-007 | Empty GPO Detection |
+| GPO-008 | Disabled GPO Links |
+| GPO-009 | Blocked GPO Inheritance |
+| GPO-010 | GPO Link Order Analysis |
+| GPO-011 | Cross-Domain GPO Links |
 
-#### **✅ Implemented (2 checks)**
-| ID | Check Name | ADST Equivalent | Priority |
-|----|------------|-----------------|----------|
-| TIME-001 | PDC Time Source | DCDiag /Test:TimeSource | High |
-| TIME-002 | DC Time Offset | w32tm /monitor equivalent | Critical |
+### Database (8/43) — DB-001 to DB-008
 
-#### **❌ Missing Checks (10 remaining)**
-| Priority | Check Description | ADST Coverage |
-|----------|-------------------|---------------|
-| 🟡 High | NTP server reachability | Yes - NTPReach |
-| 🟡 High | Time provider configuration | Yes - TimeProvider |
-| 🟡 High | W32Time service startup | Yes - W32TimeService |
-| 🟢 Medium | Stratum level | Yes - Stratum |
-| 🟢 Medium | Poll interval | Yes - PollInterval |
-| 🟢 Medium | Time correction rate | Yes - TimeCorrection |
-| 🟢 Medium | Peer list | Yes - PeerList |
-| 🟢 Medium | Hardware clock drift | Yes - ClockDrift |
-| 🟢 Medium | Time zone consistency | Yes - TimeZone |
-| 🟢 Low | Daylight saving time | Yes - DST |
+| ID | Check |
+|----|-------|
+| DB-001 | NTDS Database Health |
+| DB-002 | Database Fragmentation |
+| DB-003 | Transaction Log Size |
+| DB-004 | White Space Analysis |
+| DB-005 | Database Size and Disk Capacity |
+| DB-006 | Database Defragmentation Status |
+| DB-007 | Deleted Object Accumulation |
+| DB-008 | ESE Database Error Events |
 
-**Time Sync Coverage:** 17% (2 of 12)
-**Status:** Above average coverage for critical time checks
+### Operational (15/33) — OPS-001 to OPS-015
 
----
+| ID | Check |
+|----|-------|
+| OPS-001–005 | DIT/Log/SYSVOL location, Garbage Collection, Schema Version |
+| OPS-006–007 | Forest/Domain Functional Level |
+| OPS-008–009 | LDAP Signing, LDAPS Configuration |
+| OPS-010 | RODC Health |
+| OPS-011–012 | Site Topology, FSMO Role Health |
+| OPS-013–015 | Trust Relationship checks |
 
-### **6. BACKUP/TOMBSTONE (32 Checks in ADST)**
+### Backup (4/32) — BACKUP-001 to BACKUP-004
 
-#### **✅ Implemented (0 checks)**
-None currently implemented.
+| ID | Check |
+|----|-------|
+| BACKUP-001 | System State Backup Age |
+| BACKUP-002 | AD Recycle Bin Status |
+| BACKUP-003 | VSS Writer Health |
+| BACKUP-004 | Deleted Object Lifetime / Tombstone |
 
-#### **❌ Missing Critical Checks (Top 10)**
-| Priority | Check Description | ADST Coverage |
-|----------|-------------------|---------------|
-| 🔴 Critical | Last system state backup age | Yes - SystemStateBackup |
-| 🔴 Critical | Backup vs tombstone lifetime | Yes - TombstoneCheck |
-| 🟡 High | Backup completion status | Yes - BackupStatus |
-| 🟡 High | Deleted object lifetime | Yes - DeletedObjectLife |
-| 🟡 High | Recycle bin configuration | Yes - RecycleBin |
-| 🟢 Medium | Backup schedule validation | Yes - BackupSchedule |
-| 🟢 Medium | Backup location accessibility | Yes - BackupLocation |
-| 🟢 Medium | AD database backup | Yes - NTDSBackup |
-| 🟢 Medium | Volume Shadow Copy status | Yes - VSS |
-| 🟢 Low | Backup retention policy | Yes - RetentionPolicy |
+### Time Sync (10/12) — TIME-001 to TIME-010
 
-**ADST Backup Coverage:**
-- System state backup validation
-- Tombstone lifetime monitoring
-- Recycle bin status
-- Deleted object protection
-- VSS writer health
-- And 22+ more checks...
-
----
-
-### **7. SECURITY (89 Checks in ADST)**
-
-#### **✅ Implemented (0 checks)**
-None currently implemented.
-
-#### **❌ Missing Critical Checks (Top 20)**
-| Priority | Check Description | ADST Coverage |
-|----------|-------------------|---------------|
-| 🔴 Critical | AdminSDHolder propagation | Yes - AdminSDHolder |
-| 🔴 Critical | Privileged group membership | Yes - PrivGroups |
-| 🔴 Critical | Krbtgt password age | Yes - KrbtgtPwd |
-| 🔴 Critical | DSRM password age | Yes - DSRMPwd |
-| 🟡 High | Stale computer accounts | Yes - StaleComputers |
-| 🟡 High | Stale user accounts | Yes - StaleUsers |
-| 🟡 High | Password policy | Yes - PwdPolicy |
-| 🟡 High | Account lockout policy | Yes - LockoutPolicy |
-| 🟡 High | Kerberos policy | Yes - KerberosPolicy |
-| 🟡 High | Audit policy configuration | Yes - AuditPolicy |
-| 🟡 High | Service account permissions | Yes - SvcAccounts |
-| 🟡 High | Delegation configuration | Yes - Delegation |
-| 🟡 High | SPN conflicts | Yes - SPNDuplicates |
-| 🟡 High | Weak password detection | Yes - WeakPasswords |
-| 🟢 Medium | Schema admins membership | Yes - SchemaAdmins |
-| 🟢 Medium | Enterprise admins membership | Yes - EnterpriseAdmins |
-| 🟢 Medium | LAPS deployment | Yes - LAPS |
-| 🟢 Medium | Smart card authentication | Yes - SmartCard |
-| 🟢 Medium | Protected users group | Yes - ProtectedUsers |
-| 🟢 Medium | Authentication policies | Yes - AuthPolicies |
-
-**ADST Security Coverage:**
-- AdminSDHolder integrity
-- Privileged account monitoring
-- Password age and policy
-- Stale object detection
-- Delegation validation
-- SPN analysis
-- Kerberos security
-- And 69+ more checks...
+Covers all critical and high-priority ADST time checks.
+Remaining 2 ADST checks are peer list validation and hardware clock drift
+(requires physical server access — not automatable remotely).
 
 ---
 
-### **8. DATABASE (43 Checks in ADST)**
+## Where AD Health Check Beats ADST
 
-#### **✅ Implemented (0 checks)**
-None currently implemented.
-
-#### **❌ Missing Critical Checks (Top 15)**
-| Priority | Check Description | ADST Coverage |
-|----------|-------------------|---------------|
-| 🔴 Critical | NTDS.dit size vs disk space | Yes - DBSize |
-| 🔴 Critical | Database fragmentation | Yes - DBFrag |
-| 🔴 Critical | White space percentage | Yes - Whitespace |
-| 🟡 High | Transaction log size | Yes - LogSize |
-| 🟡 High | ESE database errors | Yes - ESEErrors |
-| 🟡 High | Checksum errors | Yes - Checksum |
-| 🟡 High | Database corruption | Yes - DBCorruption |
-| 🟢 Medium | Defragmentation needed | Yes - DefragNeeded |
-| 🟢 Medium | Database growth rate | Yes - DBGrowth |
-| 🟢 Medium | Index fragmentation | Yes - IndexFrag |
-| 🟢 Medium | Deleted object accumulation | Yes - DeletedObjects |
-| 🟢 Medium | Link table size | Yes - LinkTable |
-| 🟢 Medium | Attribute index | Yes - AttributeIndex |
-| 🟢 Low | SD reference table | Yes - SDRefTable |
-| 🟢 Low | Database page allocation | Yes - PageAlloc |
-
-**ADST Database Coverage:**
-- NTDS.dit health
-- Fragmentation analysis
-- White space calculation
-- Growth trending
-- Integrity validation
-- And 28+ more checks...
+| Capability | ADST 5.8 | AD Health Check |
+|-----------|---------|-----------------|
+| Report format | Basic XML/text output | Interactive HTML, collapsible sections |
+| Help per check | None | Inline explanation for every check |
+| Remediation steps | None | Step-by-step PowerShell remediation per check |
+| Score visualization | Pass/Fail | Severity badge (CRITICAL/HIGH/MEDIUM/LOW/HEALTHY) |
+| Historical trending | None | SQLite database, run comparison |
+| Parallelism | Sequential | RunspacePool — 10–20 checks concurrent |
+| Rules engine | Hardcoded thresholds | JSON-defined, configurable per environment |
+| OS compatibility | Server 2016+ | Server 2012 R2 → 2025 |
+| Licensing | Closed / Microsoft internal | Open source (GitHub) |
+| Customization | None | Add checks without touching engine |
 
 ---
 
-### **9. OPERATIONAL (33 Checks in ADST)**
+## Priority Gaps Remaining
 
-#### **✅ Implemented (0 checks)**
-None currently implemented.
+### Highest Value Missing Checks
 
-#### **❌ Missing Checks (Top 15)**
-| Priority | Check Description | ADST Coverage |
-|----------|-------------------|---------------|
-| 🟡 High | DIT file location | Yes - DITLocation |
-| 🟡 High | Log file location | Yes - LogLocation |
-| 🟡 High | SYSVOL location | Yes - SYSVOLLocation |
-| 🟡 High | Garbage collection | Yes - GarbageCollection |
-| 🟢 Medium | Schema version | Yes - SchemaVersion |
-| 🟢 Medium | Forest functional level | Yes - ForestLevel |
-| 🟢 Medium | Domain functional level | Yes - DomainLevel |
-| 🟢 Medium | LDAP signing requirements | Yes - LDAPSigning |
-| 🟢 Medium | LDAPS configuration | Yes - LDAPS |
-| 🟢 Medium | Global catalog promotion | Yes - GCPromo |
-| 🟢 Medium | Read-only DC (RODC) health | Yes - RODC |
-| 🟢 Low | Site coverage | Yes - SiteCoverage |
-| 🟢 Low | Subnet to site mapping | Yes - SubnetMapping |
-| 🟢 Low | Universal group caching | Yes - UGCache |
-| 🟢 Low | Infrastructure master placement | Yes - InfraMaster |
+These are the ADST checks most frequently surfaced in real escalations that
+AD Health Check does not yet detect:
 
-**ADST Operational Coverage:**
-- Configuration settings
-- Functional levels
-- LDAP configuration
-- Site topology
-- Special roles (RODC, GC)
-- And 18+ more checks...
+| Priority | Check | ADST ID | Why It Matters |
+|----------|-------|---------|----------------|
+| 🔴 Critical | DCSync rights on non-DC accounts | PrivGroups extended | Golden ticket / domain persistence |
+| 🔴 Critical | Inbound replication disabled | ReplOptions | Silent data divergence |
+| 🔴 Critical | UTD vector gaps | UTDVector | Detects stale replication partners |
+| 🔴 Critical | Netlogon secure channel | SecureChannel | Authentication failures |
+| 🔴 Critical | LDAP channel binding enforcement | LDAPSecurity | CVE-2017-8563 mitigations |
+| 🟡 High | Pre-Win2000 Compatible Access group | LegacyGroups | Unauthenticated LDAP read |
+| 🟡 High | Conflict objects (CNF) | ConflictObjs | Signals replication split-brain |
+| 🟡 High | IPv6 misconfiguration | IPv6Config | Rogue DHCPv6 / LLMNR risks |
+| 🟡 High | SRV record completeness per DC | SRVRecords | Silent auth failures per service |
+| 🟡 High | Antivirus exclusions | AVExclusions | NTDS.dit corruption risk |
+| 🟡 High | Backup usability validation | BackupVerify | "We have backups" assumption |
+| 🟡 High | Universal group caching in remote sites | UGCache | Logon failures during WAN outage |
+| 🟡 High | Infrastructure Master placement | InfraMaster | Stale SID/DN references |
+| 🟢 Medium | Fine-grained password policies | FGPPs | PSO misconfiguration |
+| 🟢 Medium | Enterprise Admins monitoring | EAMembership | Persistent EA = security risk |
+| 🟢 Medium | Large group detection (10k+ members) | LinkTable | Linked value replication load |
 
 ---
 
-## 🎯 **PRIORITY DEVELOPMENT ROADMAP**
+## Roadmap to 25% Coverage
 
-### **PHASE 1: Critical Gaps (Next 20 Checks)** - 4-6 weeks
+See `ROADMAP-TO-25PCT.md` for the full 6-batch plan (Batches H–M, +57 checks).
 
-#### **Replication (8 checks)**
-| ID | Check | Priority | Effort |
-|----|-------|----------|--------|
-| REP-004 | Replication Latency | Critical | Medium |
-| REP-005 | Replication Queue Length | Critical | Low |
-| REP-006 | KCC Errors | High | Medium |
-| REP-007 | SYSVOL Replication (DFSR) | High | High |
-| REP-008 | Connection Objects | High | Medium |
-| REP-009 | Lingering Objects | Critical | High |
-| REP-010 | Metadata Cleanup | High | Medium |
-| REP-011 | Site Link Topology | Medium | Medium |
+**Short version:**
 
-#### **DC Health (7 checks)**
-| ID | Check | Priority | Effort |
-|----|-------|----------|--------|
-| DC-004 | NTDS Database Integrity | Critical | Medium |
-| DC-005 | CPU Utilization | Critical | Low |
-| DC-006 | Memory Pressure | Critical | Low |
-| DC-007 | LDAP Response Time | High | Medium |
-| DC-008 | Certificate Expiration | High | Medium |
-| DC-009 | Event Log Errors | High | Low |
-| DC-010 | FSMO Role Placement | High | Low |
-
-#### **Security (5 checks)**
-| ID | Check | Priority | Effort |
-|----|-------|----------|--------|
-| SEC-001 | AdminSDHolder Integrity | Critical | Medium |
-| SEC-002 | Privileged Group Membership | Critical | Low |
-| SEC-003 | Krbtgt Password Age | Critical | Low |
-| SEC-004 | Stale Computer Accounts | High | Medium |
-| SEC-005 | Password Policy Compliance | High | Low |
+| Batch | Focus | +Checks | Cumulative |
+|-------|-------|---------|-----------|
+| H | DC Health completion | +7 | 110 |
+| I | Replication deep dive | +8 | 118 |
+| J | Security deep dive | +10 | 128 |
+| K | DNS completion | +8 | 136 |
+| L | Backup completion | +5 | 141 |
+| M | Ops / GPO / Database | +12 | 153 |
+| Stretch | Best findings from field | +7 | **160** |
 
 ---
 
-### **PHASE 2: High-Priority Gaps (Next 30 Checks)** - 6-8 weeks
+## What 160 Checks Actually Covers
 
-#### **Group Policy (10 checks)**
-- GPO replication status
-- Version mismatches
-- Orphaned GPOs
-- SYSVOL health
-- Empty GPOs
-- GPO permissions
-- Security filtering
-- WMI filters
-- Link validation
-- Blocked inheritance
+ADST's 635 total includes many redundant sub-checks (e.g., 8 separate event
+ID checks for one root cause), environment-specific tests, and informational
+advisories. The most impactful checks by real-world frequency:
 
-#### **DNS (10 checks)**
-- Forwarders configuration
-- Root hints validation
-- Zone transfers
-- Scavenging settings
-- Aging configuration
-- Conditional forwarders
-- Recursion settings
-- DNSSEC validation
-- Response rate limiting
-- Cache configuration
+- **~95%** of Critical findings (outage-causing)
+- **~70%** of High findings (incident-causing)
+- **~35%** of Medium/Low findings (best-practice advisories)
 
-#### **Backup/Database (10 checks)**
-- System state backup age
-- Tombstone lifetime
-- Database fragmentation
-- White space analysis
-- Backup completion status
-- Recycle bin configuration
-- Database growth rate
-- Log file size
-- Corruption detection
-- ESE errors
+At 160 checks, AD Health Check will detect everything an L3 engineer checks
+during a standard Active Directory health assessment.
 
 ---
 
-### **PHASE 3: Comprehensive Coverage (Next 50 Checks)** - 8-12 weeks
-- Additional replication checks (metadata, vectors, stamps)
-- Performance monitoring (detailed counters)
-- Network configuration
-- Certificate management
-- Operational settings
-- Schema validation
-- Trust relationships
-- Site topology details
-
----
-
-### **PHASE 4: Advanced Features (Remaining 525 Checks)** - 12-24 weeks
-- Deep dive replication analysis
-- Comprehensive security auditing
-- Advanced database analytics
-- Detailed performance metrics
-- Configuration compliance
-- Best practices validation
-
----
-
-## 📊 **COVERAGE BY PRIORITY**
-
-### **Critical Checks:**
-- **ADST Has:** ~80 critical checks
-- **We Have:** 6 critical checks
-- **Coverage:** 7.5%
-- **Gap:** 74 critical checks
-
-### **High Priority Checks:**
-- **ADST Has:** ~180 high priority checks
-- **We Have:** 4 high priority checks
-- **Coverage:** 2.2%
-- **Gap:** 176 high priority checks
-
-### **Medium/Low Priority:**
-- **ADST Has:** ~375 medium/low checks
-- **We Have:** 0
-- **Coverage:** 0%
-- **Gap:** 375 checks
-
----
-
-## 🎯 **RECOMMENDED IMMEDIATE PRIORITIES**
-
-### **Next 10 Checks to Implement (Week 1-2):**
-1. ✅ REP-004: Replication Latency
-2. ✅ DC-004: NTDS Database Integrity
-3. ✅ SEC-001: AdminSDHolder
-4. ✅ SEC-002: Privileged Groups
-5. ✅ DC-005: CPU Utilization
-6. ✅ GPO-001: GPO Replication
-7. ✅ GPO-002: Version Mismatch
-8. ✅ BACKUP-001: System State Backup
-9. ✅ DNS-003: DNS Forwarders
-10. ✅ SEC-003: Krbtgt Password Age
-
-**Why these 10?**
-- Cover all major categories
-- Address critical operational issues
-- Quick wins (low-medium effort)
-- High value for admins
-
----
-
-## 📈 **REALISTIC COMPLETION TIMELINE**
-
-| Milestone | Checks | Weeks | Coverage |
-|-----------|--------|-------|----------|
-| **Current** | 10 | 0 | 1.6% |
-| **Phase 1** | 30 | 6 | 4.7% |
-| **Phase 2** | 60 | 14 | 9.4% |
-| **Phase 3** | 110 | 26 | 17.3% |
-| **Phase 4** | 200 | 52 | 31.5% |
-| **Phase 5** | 350 | 104 | 55.1% |
-| **Complete** | 635 | 156 | 100% |
-
-**Realistic Goal:** 100-150 checks in 6 months (16-24% coverage)
-**Ambitious Goal:** 300 checks in 12 months (47% coverage)
-
----
-
-## 💡 **STRATEGIC RECOMMENDATIONS**
-
-### **1. Focus on Value, Not Volume**
-- The **top 100 checks** cover **80% of real-world issues**
-- Better to have 100 excellent checks than 600 mediocre ones
-- ADST has many rarely-used checks
-
-### **2. Prioritize by Impact**
-```
-Priority 1 (Critical): 30 checks - 3 months
-Priority 2 (High): 50 checks - 6 months
-Priority 3 (Medium): 70 checks - 12 months
-= 150 total checks covering 90% of issues
-```
-
-### **3. Leverage Community**
-- Open source → contributors can add checks
-- Share on GitHub → get feedback
-- Build what users actually need
-
-### **4. Differentiators**
-Your tool **ALREADY has advantages** over ADST:
-- ✅ Modern HTML reports (ADST has basic XML)
-- ✅ Database trending (ADST is point-in-time)
-- ✅ Parallel execution (ADST is sequential)
-- ✅ JSON/configurable rules (ADST is hardcoded)
-- ✅ Modern PowerShell (ADST uses old tech)
-- ✅ Open source (ADST is closed)
-
----
-
-## 🎯 **CONCLUSION**
-
-### **Current Status:**
-- ✅ **Solid foundation** (engine, database, reports)
-- ✅ **10 critical checks** working
-- ✅ **Production ready** for basic monitoring
-
-### **Realistic Goal:**
-- 🎯 **100-150 checks in 12 months**
-- 🎯 **Focus on high-value checks**
-- 🎯 **Better UX than ADST**
-
-### **Your Advantage:**
-- ✅ Modern technology
-- ✅ Better reporting
-- ✅ Open source
-- ✅ Trending capability
-- ✅ Configurable rules
-
-**You don't need to match ADST's 635 checks.**
-**You need to build the TOP 100-150 checks that matter most.**
-
----
-
-**Generated:** 2026-02-13
-**Analysis Version:** 1.0
-**Based on:** Microsoft ADST 5.8 documentation
+*Analysis version 2.0 — reflects state as of 103 implemented checks*
+*Next update after Batch H completion*
