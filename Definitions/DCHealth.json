@@ -459,6 +459,251 @@
       "Version": "2.0",
       "Help": "Monitors memory consumption of the LSASS process, which handles all AD authentication. Excessive LSASS memory (over 1GB) indicates a large AD database, many trusts, or a potential memory leak.",
       "Remediation": "1. If LSASS exceeds 2GB, check for LSASS memory leaks in recent Windows updates. 2. Large LSASS memory is normal on DCs with millions of objects - add RAM. 3. Reduce the number of trusts if possible. 4. Apply Windows security patches - some versions have LSASS memory leak fixes. 5. Consider enabling Credential Guard to reduce LSASS attack surface."
+    },
+    {
+      "CheckId": "DC-014",
+      "CheckName": "Netlogon Service Health",
+      "Category": "DCHealth",
+      "Severity": "Critical",
+      "ScriptPath": "Test-NetlogonHealth.ps1",
+      "PassMessage": "Netlogon service is healthy on all domain controllers",
+      "FailMessage": "Netlogon service health issues detected",
+      "EvaluationRules": [
+        {
+          "RuleId": "DC-014-NOT-RUNNING",
+          "Condition": "Any(ServiceRunning == false)",
+          "Status": "Fail",
+          "Severity": "critical",
+          "Message": "Netlogon service is not running on one or more DCs"
+        },
+        {
+          "RuleId": "DC-014-NO-SHARE",
+          "Condition": "Any(NetlogonShare == false)",
+          "Status": "Fail",
+          "Severity": "critical",
+          "Message": "NETLOGON share is missing on one or more DCs"
+        },
+        {
+          "RuleId": "DC-014-HASISSUE",
+          "Condition": "Any(HasIssue == true)",
+          "Status": "Warning",
+          "Severity": "high",
+          "Message": "Netlogon service health issue detected"
+        }
+      ],
+      "IsEnabled": true,
+      "Version": "2.0",
+      "Help": "The Netlogon service handles domain authentication, secure channel maintenance, and delivery of logon scripts via the NETLOGON share. A stopped Netlogon service causes clients to fail authentication against that DC. Missing NETLOGON or SYSVOL shares prevent logon script delivery and GPO processing. The Netlogon service also maintains the secure channel between DCs and between member servers and their authenticating DC.",
+      "Remediation": "1. Start Netlogon if stopped: Start-Service Netlogon. 2. Set startup to Automatic: Set-Service Netlogon -StartupType Automatic. 3. If NETLOGON share is missing, the service may have failed to start correctly - check Event Viewer > System for Netlogon errors. 4. Re-register shares: net share NETLOGON=C:\\Windows\\SYSVOL\\sysvol\\domain.com\\SCRIPTS. 5. For persistent failures, run: dcdiag /test:netlogons to get detailed diagnostics."
+    },
+    {
+      "CheckId": "DC-015",
+      "CheckName": "DC Locator Test",
+      "Category": "DCHealth",
+      "Severity": "Critical",
+      "ScriptPath": "Test-DCLocator.ps1",
+      "PassMessage": "All domain controllers are locatable via DC Locator",
+      "FailMessage": "DC Locator issues detected on one or more domain controllers",
+      "EvaluationRules": [
+        {
+          "RuleId": "DC-015-LDAP-FAIL",
+          "Condition": "Any(LDAPResponds == false)",
+          "Status": "Fail",
+          "Severity": "critical",
+          "Message": "One or more DCs do not respond to LDAP on port 389 - DC is not locatable"
+        },
+        {
+          "RuleId": "DC-015-DNS-FAIL",
+          "Condition": "Any(DNSResolves == false)",
+          "Status": "Fail",
+          "Severity": "critical",
+          "Message": "One or more DC FQDNs do not resolve in DNS - clients cannot find the DC"
+        },
+        {
+          "RuleId": "DC-015-HASISSUE",
+          "Condition": "Any(HasIssue == true)",
+          "Status": "Warning",
+          "Severity": "high",
+          "Message": "DC Locator issue detected"
+        }
+      ],
+      "IsEnabled": true,
+      "Version": "2.0",
+      "Help": "The DC Locator process is how Windows clients find a domain controller. It queries DNS for SRV records (_ldap._tcp.dc._msdcs.<domain>), then sends a CLDAP ping to the returned DCs. If a DC cannot be found, clients fall back to other DCs or fail authentication entirely. This check validates the minimum requirements: LDAP port 389 responds and the DC FQDN resolves in DNS.",
+      "Remediation": "1. If LDAP does not respond: verify AD DS service is running, check firewall rules for port 389. 2. If DNS does not resolve: run nltest /dsregdns on the DC to re-register DNS records. 3. Run dcdiag /test:registerdns to diagnose DNS registration issues. 4. Manually register: ipconfig /registerdns and net stop netlogon; net start netlogon. 5. Verify DNS SRV records: nslookup -type=SRV _ldap._tcp.dc._msdcs.<domain>."
+    },
+    {
+      "CheckId": "DC-016",
+      "CheckName": "AD Port Connectivity",
+      "Category": "DCHealth",
+      "Severity": "Critical",
+      "ScriptPath": "Test-ADPortConnectivity.ps1",
+      "PassMessage": "All required Active Directory ports are open between domain controllers",
+      "FailMessage": "Required AD ports are blocked between domain controllers",
+      "EvaluationRules": [
+        {
+          "RuleId": "DC-016-MULTIPLE-BLOCKED",
+          "Condition": "Any(BlockedCount > 2)",
+          "Status": "Fail",
+          "Severity": "critical",
+          "Message": "Multiple critical AD ports are blocked to one or more DCs - replication and authentication will fail"
+        },
+        {
+          "RuleId": "DC-016-SOME-BLOCKED",
+          "Condition": "Any(BlockedCount > 0)",
+          "Status": "Fail",
+          "Severity": "high",
+          "Message": "One or more required AD ports are blocked between domain controllers"
+        },
+        {
+          "RuleId": "DC-016-HASISSUE",
+          "Condition": "Any(HasIssue == true)",
+          "Status": "Fail",
+          "Severity": "high",
+          "Message": "AD port connectivity issue detected"
+        }
+      ],
+      "IsEnabled": true,
+      "Version": "2.0",
+      "Help": "Active Directory requires specific TCP ports to be open between all domain controllers for replication, authentication, and administration. Blocked ports cause silent failures: replication stops, Kerberos tickets cannot be validated, LDAP queries fail. Required ports: 88 (Kerberos), 135 (RPC), 389 (LDAP), 445 (SMB/RPC), 636 (LDAPS), 3268/3269 (Global Catalog). Dynamic RPC ports (49152-65535) are also required for full functionality.",
+      "Remediation": "1. Identify which firewall is blocking: Windows Firewall, network firewall, or security software. 2. For Windows Firewall: Get-NetFirewallRule | Where DisplayName -like '*Domain*'. 3. Add missing rules: netsh advfirewall firewall add rule name='AD Replication' dir=in action=allow protocol=TCP localport=389,636,3268,3269,88,135,445. 4. For network firewalls, work with the network team to open the required ports between DC subnets. 5. Microsoft KB article 179442 lists all required AD ports."
+    },
+    {
+      "CheckId": "DC-017",
+      "CheckName": "IPv6 Configuration",
+      "Category": "DCHealth",
+      "Severity": "Medium",
+      "ScriptPath": "Test-IPv6Config.ps1",
+      "PassMessage": "IPv6 configuration is acceptable on all domain controllers",
+      "FailMessage": "IPv6 configuration issues detected on domain controllers",
+      "EvaluationRules": [
+        {
+          "RuleId": "DC-017-FULLY-DISABLED",
+          "Condition": "Any(IPv6FullyDisabled == true)",
+          "Status": "Warning",
+          "Severity": "medium",
+          "Message": "IPv6 is completely disabled on one or more DCs - Microsoft does not recommend this configuration"
+        },
+        {
+          "RuleId": "DC-017-HASISSUE",
+          "Condition": "Any(HasIssue == true)",
+          "Status": "Warning",
+          "Severity": "low",
+          "Message": "IPv6 configuration advisory detected"
+        }
+      ],
+      "IsEnabled": true,
+      "Version": "2.0",
+      "Help": "Microsoft does not recommend completely disabling IPv6 (DisabledComponents=0xFF) on Windows Server. Some Windows components depend on IPv6 even in IPv4-only environments (DirectAccess, ISATAP, loopback via ::1). If you want to prefer IPv4, set DisabledComponents=0x20 instead. Unmanaged IPv6 (link-local only, no DHCPv6 or static assignment) is usually acceptable but may expose the DC to IPv6-based attacks like rogue DHCPv6 server attacks.",
+      "Remediation": "1. To prefer IPv4 without disabling IPv6 entirely: Set-ItemProperty -Path HKLM:\\SYSTEM\\CurrentControlSet\\Services\\Tcpip6\\Parameters -Name DisabledComponents -Value 32. 2. Restart the server for the change to take effect. 3. If full IPv6 disable is required for compliance, document the exception as per Microsoft KB929852. 4. For link-local-only environments, ensure Windows Firewall blocks inbound IPv6 from external sources: netsh advfirewall firewall add rule name='Block External IPv6' dir=in action=block protocol=ICMPv6."
+    },
+    {
+      "CheckId": "DC-018",
+      "CheckName": "Page File Configuration",
+      "Category": "DCHealth",
+      "Severity": "Medium",
+      "ScriptPath": "Test-PageFileConfig.ps1",
+      "PassMessage": "Page file is correctly configured on all domain controllers",
+      "FailMessage": "Page file configuration issues detected on domain controllers",
+      "EvaluationRules": [
+        {
+          "RuleId": "DC-018-NO-PAGEFILE",
+          "Condition": "Any(PageFileCount == 0)",
+          "Status": "Fail",
+          "Severity": "high",
+          "Message": "No page file configured on one or more DCs - crash dumps cannot be captured"
+        },
+        {
+          "RuleId": "DC-018-HASISSUE",
+          "Condition": "Any(HasIssue == true)",
+          "Status": "Warning",
+          "Severity": "medium",
+          "Message": "Page file configuration issue detected"
+        }
+      ],
+      "IsEnabled": true,
+      "Version": "2.0",
+      "Help": "The Windows page file serves two purposes on domain controllers: it provides overflow virtual memory when RAM is exhausted, and it enables complete memory dump files for crash diagnosis. Without a page file, if LSASS or another critical process crashes, no dump file is created, making root cause analysis impossible. Microsoft recommends system-managed page files or a minimum of 1x physical RAM for servers.",
+      "Remediation": "1. Enable system-managed page file (recommended): System Properties > Advanced > Performance > Settings > Advanced > Virtual Memory > Automatically manage. 2. Or via PowerShell: $cs = Get-WmiObject Win32_ComputerSystem; $cs.AutomaticManagedPagefile = $true; $cs.Put(). 3. For manual config, set initial size = RAM size: Set-WmiInstance -Class Win32_PageFileSetting -Arguments @{Name='C:\\pagefile.sys'; InitialSize=<RAM_MB>; MaximumSize=<RAM_MB*2>}. 4. Reboot required after page file changes."
+    },
+    {
+      "CheckId": "DC-019",
+      "CheckName": "Windows Update Status",
+      "Category": "DCHealth",
+      "Severity": "High",
+      "ScriptPath": "Test-WindowsUpdateStatus.ps1",
+      "PassMessage": "Windows Updates are current on all domain controllers",
+      "FailMessage": "Windows Update issues detected on domain controllers",
+      "EvaluationRules": [
+        {
+          "RuleId": "DC-019-VERY-STALE",
+          "Condition": "Any(DaysSinceUpdate > 180)",
+          "Status": "Fail",
+          "Severity": "critical",
+          "Message": "One or more DCs have not received Windows Updates in over 180 days"
+        },
+        {
+          "RuleId": "DC-019-STALE",
+          "Condition": "Any(DaysSinceUpdate > 90)",
+          "Status": "Fail",
+          "Severity": "high",
+          "Message": "One or more DCs have not received Windows Updates in over 90 days"
+        },
+        {
+          "RuleId": "DC-019-REBOOT-PENDING",
+          "Condition": "Any(RebootPending == true)",
+          "Status": "Warning",
+          "Severity": "medium",
+          "Message": "One or more DCs have a pending reboot required for Windows Updates"
+        },
+        {
+          "RuleId": "DC-019-HASISSUE",
+          "Condition": "Any(HasIssue == true)",
+          "Status": "Warning",
+          "Severity": "medium",
+          "Message": "Windows Update status issue detected"
+        }
+      ],
+      "IsEnabled": true,
+      "Version": "2.0",
+      "Help": "Domain controllers must be kept patched to protect against known vulnerabilities. Critical patches for DCs include Kerberos privilege escalation (MS14-068, Zerologon CVE-2020-1472), PrintNightmare (CVE-2021-1675), and LDAP vulnerabilities. Unpatched DCs are frequent targets in ransomware attacks. A pending reboot means the update is installed but not yet active, leaving the DC partially protected.",
+      "Remediation": "1. Check pending updates: Install-Module PSWindowsUpdate -Force; Get-WindowsUpdate -ComputerName <DC>. 2. Install updates during maintenance window: Install-WindowsUpdate -ComputerName <DC> -AcceptAll -AutoReboot. 3. For WSUS environments: wuauclt /detectnow; wuauclt /reportnow. 4. Schedule regular patching - monthly Patch Tuesday minimum for DCs. 5. For pending reboots, schedule during low-traffic window and ensure FSMO roles are transferred first if needed."
+    },
+    {
+      "CheckId": "DC-020",
+      "CheckName": "Power Plan Configuration",
+      "Category": "DCHealth",
+      "Severity": "Medium",
+      "ScriptPath": "Test-PowerPlanConfig.ps1",
+      "PassMessage": "All domain controllers are using the High Performance power plan",
+      "FailMessage": "Domain controllers are not using the High Performance power plan",
+      "EvaluationRules": [
+        {
+          "RuleId": "DC-020-POWER-SAVER",
+          "Condition": "Any(PowerPlanName == 'Power Saver')",
+          "Status": "Fail",
+          "Severity": "high",
+          "Message": "One or more DCs are using Power Saver plan - severe CPU throttling active"
+        },
+        {
+          "RuleId": "DC-020-NOT-HIGH-PERF",
+          "Condition": "Any(IsHighPerformance == false)",
+          "Status": "Warning",
+          "Severity": "medium",
+          "Message": "One or more DCs are not using the High Performance power plan - CPU may throttle under authentication load"
+        },
+        {
+          "RuleId": "DC-020-HASISSUE",
+          "Condition": "Any(HasIssue == true)",
+          "Status": "Warning",
+          "Severity": "medium",
+          "Message": "Power plan configuration issue detected"
+        }
+      ],
+      "IsEnabled": true,
+      "Version": "2.0",
+      "Help": "The Windows power plan controls CPU frequency scaling. On Balanced and Power Saver plans, the CPU downclocks when load is low, then ramps up when load increases. This ramp-up delay causes elevated latency on the first authentication requests after idle periods, which can manifest as intermittent Kerberos timeouts. Domain controllers should always run at full CPU frequency using the High Performance plan. This is especially important for virtualized DCs where the hypervisor may also apply power management.",
+      "Remediation": "1. Set High Performance via PowerShell: powercfg /setactive 8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c. 2. Verify: powercfg /getactivescheme. 3. For remote DCs: Invoke-Command -ComputerName <DC> -ScriptBlock { powercfg /setactive 8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c }. 4. Deploy via GPO: Computer Configuration > Administrative Templates > System > Power Management > Active Power Plan - set to High Performance GUID. 5. For VMs: also disable power management in the hypervisor host's BIOS and set the VM's CPU to not use host power saving features."
     }
   ]
 }
