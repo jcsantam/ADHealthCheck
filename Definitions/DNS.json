@@ -226,6 +226,158 @@
       "Version": "2.0",
       "Help": "Verifies that AD-integrated DNS zones use Secure-only dynamic updates. Non-secure updates allow any computer to register or overwrite DNS records, enabling DNS spoofing and man-in-the-middle attacks.",
       "Remediation": "1. In DNS Manager, right-click the affected zone and select Properties. 2. Change 'Dynamic Updates' from 'Nonsecure and secure' to 'Secure only'. 3. This requires the zone to be AD-integrated. 4. Verify that legitimate clients can still update their DNS records after the change."
+    },
+    {
+      "CheckId": "DNS-008",
+      "CheckName": "DNS Aging Configuration",
+      "Category": "DNS",
+      "Severity": "Medium",
+      "ScriptPath": "Test-DNSAging.ps1",
+      "PassMessage": "DNS aging is enabled on all AD-integrated zones",
+      "FailMessage": "DNS aging is disabled on one or more AD-integrated zones",
+      "EvaluationRules": [
+        {
+          "RuleId": "DNS-008-AGING-DISABLED",
+          "Condition": "Any(AgingEnabled == false)",
+          "Status": "Warning",
+          "Severity": "medium",
+          "Message": "DNS aging is disabled on an AD-integrated zone - stale DNS records will not be removed automatically"
+        },
+        {
+          "RuleId": "DNS-008-HASISSUE",
+          "Condition": "Any(HasIssue == true)",
+          "Status": "Warning",
+          "Severity": "medium",
+          "Message": "DNS aging configuration issue detected"
+        }
+      ],
+      "IsEnabled": true,
+      "Version": "2.0",
+      "Help": "Verifies DNS aging is enabled on AD-integrated zones. Without aging, stale DNS records accumulate over time as computers are decommissioned, causing name resolution errors and cluttering DNS.",
+      "Remediation": "1. In DNS Manager right-click the zone, select Properties then General tab. 2. Click Aging and enable scavenging with No-refresh=7 days and Refresh=7 days. 3. Also enable server-level scavenging: right-click the DNS server, select Set Aging/Scavenging for All Zones. 4. Run dnscmd /startscavenging to trigger an immediate cleanup cycle."
+    },
+    {
+      "CheckId": "DNS-009",
+      "CheckName": "Reverse Lookup Zones",
+      "Category": "DNS",
+      "Severity": "Medium",
+      "ScriptPath": "Test-ReverseLookupZones.ps1",
+      "PassMessage": "Reverse lookup zones are present and AD-integrated",
+      "FailMessage": "Reverse lookup zone issues detected",
+      "EvaluationRules": [
+        {
+          "RuleId": "DNS-009-NO-REVERSE-ZONES",
+          "Condition": "Any(ReverseLookupZoneCount == 0)",
+          "Status": "Warning",
+          "Severity": "medium",
+          "Message": "No reverse lookup zones found - IP-to-hostname resolution will fail"
+        },
+        {
+          "RuleId": "DNS-009-NON-INTEGRATED",
+          "Condition": "Any(HasNonIntegratedZones == true)",
+          "Status": "Warning",
+          "Severity": "low",
+          "Message": "One or more reverse lookup zones are not AD-integrated and will not replicate automatically"
+        },
+        {
+          "RuleId": "DNS-009-HASISSUE",
+          "Condition": "Any(HasIssue == true)",
+          "Status": "Warning",
+          "Severity": "medium",
+          "Message": "Reverse lookup zone issue detected"
+        }
+      ],
+      "IsEnabled": true,
+      "Version": "2.0",
+      "Help": "Checks for the existence of reverse lookup (PTR) zones. Reverse lookup zones allow IP-to-hostname resolution, which is required by many security tools, audit logs, and network diagnostics.",
+      "Remediation": "1. In DNS Manager right-click Reverse Lookup Zones and select New Zone. 2. Create a primary AD-integrated reverse zone for each subnet in use. 3. Enable dynamic updates so DCs and clients register PTR records automatically. 4. Verify PTR records exist: Resolve-DnsName <IP> -Type PTR."
+    },
+    {
+      "CheckId": "DNS-010",
+      "CheckName": "Conditional Forwarders",
+      "Category": "DNS",
+      "Severity": "High",
+      "ScriptPath": "Test-ConditionalForwarders.ps1",
+      "PassMessage": "All conditional forwarder targets are reachable",
+      "FailMessage": "Unreachable conditional forwarder target servers detected",
+      "EvaluationRules": [
+        {
+          "RuleId": "DNS-010-UNREACHABLE-MASTER",
+          "Condition": "Any(IsReachable == false)",
+          "Status": "Fail",
+          "Severity": "high",
+          "Message": "A conditional forwarder has unreachable master server(s) - DNS resolution for that namespace will fail"
+        },
+        {
+          "RuleId": "DNS-010-HASISSUE",
+          "Condition": "Any(HasIssue == true)",
+          "Status": "Fail",
+          "Severity": "high",
+          "Message": "Conditional forwarder issue detected"
+        }
+      ],
+      "IsEnabled": true,
+      "Version": "2.0",
+      "Help": "Tests reachability of conditional forwarder target servers. Unreachable conditional forwarder targets cause DNS resolution failures for those specific namespaces, breaking access to partner networks or specific applications.",
+      "Remediation": "1. Verify network connectivity to the forwarder target IP: Test-NetConnection <IP> -Port 53. 2. Check firewall rules between DC and the target DNS server. 3. Update the conditional forwarder IP if the target DNS server has moved. 4. Remove stale conditional forwarders that are no longer needed."
+    },
+    {
+      "CheckId": "DNS-011",
+      "CheckName": "DNS Recursion Settings",
+      "Category": "DNS",
+      "Severity": "High",
+      "ScriptPath": "Test-DNSRecursion.ps1",
+      "PassMessage": "DNS recursion settings are correctly configured on all DCs",
+      "FailMessage": "DNS recursion configuration issues detected",
+      "EvaluationRules": [
+        {
+          "RuleId": "DNS-011-RECURSION-DISABLED-NO-FORWARDERS",
+          "Condition": "Any(RecursionEnabled == false)",
+          "Status": "Fail",
+          "Severity": "high",
+          "Message": "DNS recursion is disabled - check forwarder configuration to ensure external resolution is possible"
+        },
+        {
+          "RuleId": "DNS-011-HASISSUE",
+          "Condition": "Any(HasIssue == true)",
+          "Status": "Warning",
+          "Severity": "high",
+          "Message": "DNS recursion configuration issue detected"
+        }
+      ],
+      "IsEnabled": true,
+      "Version": "2.0",
+      "Help": "Checks DNS recursion settings on each DC. Recursion allows the DNS server to query other DNS servers on behalf of clients. Disabled recursion without forwarders means the DNS server cannot resolve external names.",
+      "Remediation": "1. To enable recursion: In DNS Manager right-click the server, select Properties then Advanced tab, uncheck Disable recursion. 2. Or via PowerShell: Set-DnsServerRecursion -Enable $true. 3. If recursion must be disabled, ensure DNS forwarders are configured to handle external resolution. 4. Restart the DNS Server service after changes."
+    },
+    {
+      "CheckId": "DNS-012",
+      "CheckName": "DNSSEC Configuration",
+      "Category": "DNS",
+      "Severity": "Low",
+      "ScriptPath": "Test-DNSSECConfig.ps1",
+      "PassMessage": "DNSSEC signing status has been evaluated for all domains",
+      "FailMessage": "DNSSEC is not configured on one or more domain zones",
+      "EvaluationRules": [
+        {
+          "RuleId": "DNS-012-NOT-SIGNED",
+          "Condition": "Any(IsSigned == false)",
+          "Status": "Warning",
+          "Severity": "low",
+          "Message": "Domain DNS zone is not signed with DNSSEC - DNS responses are not cryptographically verified"
+        },
+        {
+          "RuleId": "DNS-012-HASISSUE",
+          "Condition": "Any(HasIssue == true)",
+          "Status": "Warning",
+          "Severity": "low",
+          "Message": "DNSSEC configuration advisory detected"
+        }
+      ],
+      "IsEnabled": true,
+      "Version": "2.0",
+      "Help": "Checks if DNS zones are signed with DNSSEC. DNSSEC prevents DNS cache poisoning and man-in-the-middle attacks by cryptographically signing DNS responses. It is increasingly required for compliance.",
+      "Remediation": "1. To sign a zone in DNS Manager: right-click the zone, select DNSSEC then Sign the Zone. 2. Use default signing parameters initially, then tune KSK/ZSK rollover periods. 3. Ensure all DCs running DNS are updated to support DNSSEC (Windows Server 2012+). 4. After signing, configure trust anchors on all DNS servers that need to validate the zone."
     }
   ]
 }
