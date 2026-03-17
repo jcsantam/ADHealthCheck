@@ -176,5 +176,310 @@
       "Help": "Reviews the AD site and subnet configuration to detect missing subnets, orphaned sites, and site link issues. Incorrect site topology causes clients to authenticate against distant DCs, increasing latency and WAN traffic.",
       "Remediation": "1. Open Active Directory Sites and Services and review sites, subnets, and site links. 2. Add missing subnet definitions: New-ADReplicationSubnet -Name '<IP/prefix>' -Site '<SiteName>'. 3. Remove empty sites that no longer have DCs: Remove-ADReplicationSite -Identity '<SiteName>'. 4. Ensure every physical network segment has a corresponding AD subnet assigned to the correct site."
     }
+    ,
+    {
+      "CheckId": "OPS-006",
+      "CheckName": "DIT File Location",
+      "Category": "Operational",
+      "Severity": "Medium",
+      "ScriptPath": "Test-DITLocation.ps1",
+      "PassMessage": "NTDS.dit is stored on a dedicated volume on all DCs",
+      "FailMessage": "NTDS.dit is stored on the system drive on one or more DCs",
+      "EvaluationRules": [
+        {
+          "RuleId": "OPS-006-SYSTEM-DRIVE",
+          "Condition": "Any(IsOnSystemDrive == true)",
+          "Status": "Warning",
+          "Severity": "medium",
+          "Message": "NTDS.dit is stored on the system drive - move to a dedicated volume"
+        },
+        {
+          "RuleId": "OPS-006-HASISSUE",
+          "Condition": "Any(HasIssue == true)",
+          "Status": "Warning",
+          "Severity": "medium",
+          "Message": "DIT file location issue detected"
+        }
+      ],
+      "IsEnabled": true,
+      "Version": "2.0",
+      "Help": "Checks that NTDS.dit is stored on a dedicated volume separate from the Windows system files. Storing the database on the system drive risks corruption during OS updates and reduces I/O performance.",
+      "Remediation": "1. Schedule a maintenance window to move NTDS.dit. 2. Boot to DSRM: ntdsutil files move db to D:\\NTDS. 3. Update the registry path: HKLM\\SYSTEM\\CurrentControlSet\\Services\\NTDS\\Parameters\\DSA Database file. 4. Reboot and verify AD starts correctly."
+    },
+    {
+      "CheckId": "OPS-007",
+      "CheckName": "Log File Location",
+      "Category": "Operational",
+      "Severity": "Medium",
+      "ScriptPath": "Test-LogFileLocation.ps1",
+      "PassMessage": "NTDS transaction logs are on a dedicated volume on all DCs",
+      "FailMessage": "NTDS transaction log location issues detected",
+      "EvaluationRules": [
+        {
+          "RuleId": "OPS-007-SYSTEM-DRIVE",
+          "Condition": "Any(LogsOnSystemDrive == true)",
+          "Status": "Warning",
+          "Severity": "medium",
+          "Message": "NTDS transaction logs are on the system drive - move to a dedicated volume"
+        },
+        {
+          "RuleId": "OPS-007-SAME-DRIVE",
+          "Condition": "Any(LogsOnSameDrive == true)",
+          "Status": "Warning",
+          "Severity": "low",
+          "Message": "NTDS transaction logs share the same drive as the database"
+        },
+        {
+          "RuleId": "OPS-007-HASISSUE",
+          "Condition": "Any(HasIssue == true)",
+          "Status": "Warning",
+          "Severity": "medium",
+          "Message": "Log file location issue detected"
+        }
+      ],
+      "IsEnabled": true,
+      "Version": "2.0",
+      "Help": "Verifies NTDS transaction logs are on a dedicated volume. Logs on the same disk as the OS or database compete for I/O, slowing write operations and increasing corruption risk during disk failures.",
+      "Remediation": "1. Boot to DSRM: ntdsutil files move logs to E:\\NTDSLogs. 2. Update registry: HKLM\\SYSTEM\\CurrentControlSet\\Services\\NTDS\\Parameters\\Database log files path. 3. Delete old log files from the original location after verifying AD health. 4. Reboot normally and verify replication."
+    },
+    {
+      "CheckId": "OPS-008",
+      "CheckName": "SYSVOL Location",
+      "Category": "Operational",
+      "Severity": "Low",
+      "ScriptPath": "Test-SYSVOLLocation.ps1",
+      "PassMessage": "SYSVOL is on a dedicated volume on all DCs",
+      "FailMessage": "SYSVOL is stored on the system drive on one or more DCs",
+      "EvaluationRules": [
+        {
+          "RuleId": "OPS-008-SYSTEM-DRIVE",
+          "Condition": "Any(IsOnSystemDrive == true)",
+          "Status": "Warning",
+          "Severity": "low",
+          "Message": "SYSVOL is stored on the system drive - move to a dedicated volume"
+        },
+        {
+          "RuleId": "OPS-008-HASISSUE",
+          "Condition": "Any(HasIssue == true)",
+          "Status": "Warning",
+          "Severity": "low",
+          "Message": "SYSVOL location issue detected"
+        }
+      ],
+      "IsEnabled": true,
+      "Version": "2.0",
+      "Help": "Checks that SYSVOL is not on the system drive. SYSVOL stores GPO templates and logon scripts - keeping it on the system drive reduces performance and risks data loss if the OS volume fails.",
+      "Remediation": "1. Moving SYSVOL requires careful procedures to avoid SYSVOL inconsistency. 2. Use dfsrmig to migrate SYSVOL to DFSR if still using FRS. 3. To relocate: stop NETLOGON and DFSR services, move files, update registry SysVol path, restart services. 4. Verify SYSVOL sharing: net share SYSVOL."
+    },
+    {
+      "CheckId": "OPS-009",
+      "CheckName": "Garbage Collection",
+      "Category": "Operational",
+      "Severity": "Low",
+      "ScriptPath": "Test-GarbageCollection.ps1",
+      "PassMessage": "AD garbage collection interval is within acceptable range",
+      "FailMessage": "AD garbage collection interval is set too high",
+      "EvaluationRules": [
+        {
+          "RuleId": "OPS-009-HASISSUE",
+          "Condition": "Any(HasIssue == true)",
+          "Status": "Warning",
+          "Severity": "low",
+          "Message": "Garbage collection interval exceeds 24 hours - deleted objects may accumulate"
+        }
+      ],
+      "IsEnabled": true,
+      "Version": "2.0",
+      "Help": "Checks the AD garbage collection interval, which controls how often the AD database removes tombstoned (deleted) objects. Infrequent garbage collection allows deleted objects to accumulate and increase database size.",
+      "Remediation": "1. Set garbage collection interval via ADSIEdit: CN=Directory Service,CN=Windows NT,CN=Services,CN=Configuration. 2. Set garbageCollPeriod attribute to 12 (hours) - the recommended default. 3. The setting takes effect on the next garbage collection cycle. 4. Monitor database size growth to detect accumulation issues."
+    },
+    {
+      "CheckId": "OPS-010",
+      "CheckName": "Schema Version",
+      "Category": "Operational",
+      "Severity": "Low",
+      "ScriptPath": "Test-SchemaVersion.ps1",
+      "PassMessage": "AD schema version meets the Windows Server 2016 baseline",
+      "FailMessage": "AD schema version is below Windows Server 2016",
+      "EvaluationRules": [
+        {
+          "RuleId": "OPS-010-OUTDATED",
+          "Condition": "Any(IsCurrentVersion == false)",
+          "Status": "Warning",
+          "Severity": "low",
+          "Message": "AD schema is below Windows Server 2016 - run adprep /forestprep to update"
+        },
+        {
+          "RuleId": "OPS-010-HASISSUE",
+          "Condition": "Any(HasIssue == true)",
+          "Status": "Warning",
+          "Severity": "low",
+          "Message": "Schema version issue detected"
+        }
+      ],
+      "IsEnabled": true,
+      "Version": "2.0",
+      "Help": "Reports the current AD schema version. An outdated schema prevents using newer AD features and may block OS upgrades. Schema updates are required before promoting Windows Server domain controllers of newer versions.",
+      "Remediation": "1. To update the schema run adprep /forestprep from the newest Windows Server DVD or ISO. 2. Requires Schema Admins membership. 3. Verify schema update: Get-ADObject -Identity (Get-ADRootDSE).schemaNamingContext -Properties objectVersion. 4. Schema updates are one-way and irreversible - test in a lab first."
+    },
+    {
+      "CheckId": "OPS-011",
+      "CheckName": "Forest Functional Level",
+      "Category": "Operational",
+      "Severity": "Low",
+      "ScriptPath": "Test-ForestFunctionalLevel.ps1",
+      "PassMessage": "Forest functional level meets the Windows Server 2016 baseline",
+      "FailMessage": "Forest functional level is below Windows Server 2016",
+      "EvaluationRules": [
+        {
+          "RuleId": "OPS-011-OUTDATED",
+          "Condition": "Any(IsCurrentLevel == false)",
+          "Status": "Warning",
+          "Severity": "low",
+          "Message": "Forest functional level is below Windows Server 2016 - modern features may not be available"
+        },
+        {
+          "RuleId": "OPS-011-HASISSUE",
+          "Condition": "Any(HasIssue == true)",
+          "Status": "Warning",
+          "Severity": "low",
+          "Message": "Forest functional level issue detected"
+        }
+      ],
+      "IsEnabled": true,
+      "Version": "2.0",
+      "Help": "Reports the forest functional level which determines which forest-wide features are available. A low forest functional level prevents enabling features like the AD Recycle Bin and Privileged Access Management.",
+      "Remediation": "1. Raise forest functional level in ADUC or via PowerShell: Set-ADForestMode -Identity <forest> -ForestMode Windows2016Forest. 2. All domains must first be at the equivalent domain functional level. 3. This change is irreversible - ensure all DCs are running compatible OS versions. 4. Test in a non-production environment first."
+    },
+    {
+      "CheckId": "OPS-012",
+      "CheckName": "Domain Functional Level",
+      "Category": "Operational",
+      "Severity": "Low",
+      "ScriptPath": "Test-DomainFunctionalLevel.ps1",
+      "PassMessage": "All domains meet the Windows Server 2016 functional level baseline",
+      "FailMessage": "One or more domains are below Windows Server 2016 functional level",
+      "EvaluationRules": [
+        {
+          "RuleId": "OPS-012-OUTDATED",
+          "Condition": "Any(IsCurrentLevel == false)",
+          "Status": "Warning",
+          "Severity": "low",
+          "Message": "Domain functional level is below Windows Server 2016 - upgrade DCs and raise the functional level"
+        },
+        {
+          "RuleId": "OPS-012-HASISSUE",
+          "Condition": "Any(HasIssue == true)",
+          "Status": "Warning",
+          "Severity": "low",
+          "Message": "Domain functional level issue detected"
+        }
+      ],
+      "IsEnabled": true,
+      "Version": "2.0",
+      "Help": "Reports the domain functional level which controls domain-wide features. A low functional level prevents using features like fine-grained password policies (requires 2008) and managed service accounts.",
+      "Remediation": "1. Raise domain functional level: Set-ADDomainMode -Identity <domain> -DomainMode Windows2016Domain. 2. All DCs in the domain must be running Windows Server 2016 or newer. 3. Decommission or upgrade older DCs first. 4. This change is irreversible."
+    },
+    {
+      "CheckId": "OPS-013",
+      "CheckName": "LDAP Signing Requirements",
+      "Category": "Operational",
+      "Severity": "High",
+      "ScriptPath": "Test-LDAPSigning.ps1",
+      "PassMessage": "LDAP signing is required on all domain controllers",
+      "FailMessage": "LDAP signing is not required on one or more domain controllers",
+      "EvaluationRules": [
+        {
+          "RuleId": "OPS-013-SIGNING-DISABLED",
+          "Condition": "Any(LDAPSigningValue == 0)",
+          "Status": "Fail",
+          "Severity": "high",
+          "Message": "LDAP signing is disabled on a DC - LDAP relay attacks are possible"
+        },
+        {
+          "RuleId": "OPS-013-SIGNING-NEGOTIATE",
+          "Condition": "Any(RequiresSigning == false)",
+          "Status": "Warning",
+          "Severity": "medium",
+          "Message": "LDAP signing is not required on one or more DCs - set LDAPServerIntegrity=2"
+        },
+        {
+          "RuleId": "OPS-013-HASISSUE",
+          "Condition": "Any(HasIssue == true)",
+          "Status": "Warning",
+          "Severity": "high",
+          "Message": "LDAP signing configuration issue detected"
+        }
+      ],
+      "IsEnabled": true,
+      "Version": "2.0",
+      "Help": "Checks whether DCs require LDAP signing, which prevents man-in-the-middle attacks on LDAP connections. Without required signing, attackers can intercept and modify LDAP traffic between clients and domain controllers.",
+      "Remediation": "1. Set LDAPServerIntegrity to 2 via GPO: Computer Configuration > Windows Settings > Security Settings > Local Policies > Security Options > Domain controller: LDAP server signing requirements = Require signing. 2. Or set directly: HKLM\\SYSTEM\\CurrentControlSet\\Services\\NTDS\\Parameters\\LDAPServerIntegrity = 2. 3. Test applications for LDAP signing compatibility before enforcing. 4. Monitor Event ID 2886 in Directory Service log for unsigned LDAP connections."
+    },
+    {
+      "CheckId": "OPS-014",
+      "CheckName": "LDAPS Configuration",
+      "Category": "Operational",
+      "Severity": "Medium",
+      "ScriptPath": "Test-LDAPSConfig.ps1",
+      "PassMessage": "LDAPS (port 636) is available on all domain controllers",
+      "FailMessage": "LDAPS (port 636) is not available on one or more domain controllers",
+      "EvaluationRules": [
+        {
+          "RuleId": "OPS-014-LDAPS-UNAVAILABLE",
+          "Condition": "Any(LDAPSAvailable == false)",
+          "Status": "Warning",
+          "Severity": "medium",
+          "Message": "LDAPS is not available on one or more DCs - install a valid SSL certificate to enable LDAPS"
+        },
+        {
+          "RuleId": "OPS-014-HASISSUE",
+          "Condition": "Any(HasIssue == true)",
+          "Status": "Warning",
+          "Severity": "medium",
+          "Message": "LDAPS configuration issue detected"
+        }
+      ],
+      "IsEnabled": true,
+      "Version": "2.0",
+      "Help": "Tests whether LDAPS (LDAP over SSL/TLS on port 636) is available on each DC. LDAPS encrypts all LDAP traffic and is required for secure credential operations. Applications transmitting credentials should use LDAPS.",
+      "Remediation": "1. LDAPS requires a valid SSL certificate on each DC. 2. Enroll DCs in a certificate with the DC's FQDN as the Subject or SAN. 3. Use autoenrollment via an internal PKI (AD CS) for automated certificate deployment. 4. Verify LDAPS after certificate installation: Test-NetConnection -ComputerName DC01 -Port 636."
+    },
+    {
+      "CheckId": "OPS-015",
+      "CheckName": "RODC Health",
+      "Category": "Operational",
+      "Severity": "High",
+      "ScriptPath": "Test-RODCHealth.ps1",
+      "PassMessage": "All RODCs are reachable and have Password Replication Policies configured",
+      "FailMessage": "RODC health issues detected",
+      "EvaluationRules": [
+        {
+          "RuleId": "OPS-015-UNREACHABLE",
+          "Condition": "Any(IsReachable == false)",
+          "Status": "Fail",
+          "Severity": "high",
+          "Message": "One or more RODCs are unreachable - local branch authentication may be denied"
+        },
+        {
+          "RuleId": "OPS-015-NO-PRP",
+          "Condition": "Any(HasPasswordPolicy == false)",
+          "Status": "Warning",
+          "Severity": "medium",
+          "Message": "One or more RODCs have no Password Replication Policy configured"
+        },
+        {
+          "RuleId": "OPS-015-HASISSUE",
+          "Condition": "Any(HasIssue == true)",
+          "Status": "Warning",
+          "Severity": "high",
+          "Message": "RODC health issue detected"
+        }
+      ],
+      "IsEnabled": true,
+      "Version": "2.0",
+      "Help": "Checks the health of Read-Only Domain Controllers (RODCs). RODCs are used in branch offices and DMZ environments - an unreachable RODC denies authentication to local users at that site.",
+      "Remediation": "1. Verify RODC physical connectivity and power state. 2. Check RODC replication: repadmin /showrepl <RODC>. 3. Ensure Password Replication Policy is configured: which accounts are allowed/denied password caching. 4. If RODC is permanently offline, demote via: Uninstall-ADDSDomainController -DemoteOperationMasterRole."
+    }
   ]
 }
