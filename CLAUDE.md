@@ -260,75 +260,9 @@ Each check needs an entry in its `Definitions/<Category>.json`:
 
 ## Backlog — Next Checks to Build
 
-Priority order from gap analysis. Build in batches of 10–20.
+All planned batches (A through G) are complete. The project now covers 103 checks across 9 categories.
 
-### Batch A — Remaining from Top-50 Critical list (15 checks)
-
-| ID | Name | Script | Category |
-|----|------|--------|----------|
-| REP-011 | KCC Errors | Test-KCCErrors.ps1 | Replication |
-| REP-012 | Site Link Topology | Test-SiteLinkTopology.ps1 | Replication |
-| REP-013 | Bridgehead Server Health | Test-BridgeheadServer.ps1 | Replication |
-| REP-014 | Replication Schedule Conflicts | Test-ReplicationSchedule.ps1 | Replication |
-| REP-015 | Naming Context Validation | Test-NamingContexts.ps1 | Replication |
-| DC-011 | Event Log Critical Errors | Test-EventLogErrors.ps1 | DCHealth |
-| DC-012 | Network Adapter Status | Test-NetworkAdapters.ps1 | DCHealth |
-| DC-013 | LSASS Memory Usage | Test-LSASSMemory.ps1 | DCHealth |
-| SEC-007 | SPN Conflicts/Duplicates | Test-SPNConflicts.ps1 | Security |
-| SEC-008 | Delegation Configuration | Test-DelegationConfig.ps1 | Security |
-| SEC-010 | Kerberos Policy | Test-KerberosPolicy.ps1 | Security |
-| GPO-006 | WMI Filter Validation | Test-WMIFilters.ps1 | GPO |
-| DNS-006 | Dynamic Update Security | Test-DynamicUpdateSecurity.ps1 | DNS |
-| DB-003 | White Space Analysis | Test-DatabaseWhiteSpace.ps1 | Database |
-| BACKUP-004 | Deleted Object Lifetime | Test-DeletedObjectLifetime.ps1 | Backup |
-
-### Batch B — Time Sync completion (8 checks)
-
-| ID | Name | Script |
-|----|------|--------|
-| TIME-003 | NTP Server Reachability | Test-NTPReachability.ps1 |
-| TIME-004 | Time Provider Configuration | Test-TimeProviderConfig.ps1 |
-| TIME-005 | W32Time Service Startup | Test-W32TimeService.ps1 |
-| TIME-006 | Stratum Level | Test-StratumLevel.ps1 |
-| TIME-007 | Poll Interval | Test-PollInterval.ps1 |
-| TIME-008 | Time Correction Rate | Test-TimeCorrectionRate.ps1 |
-| TIME-009 | Time Zone Consistency | Test-TimeZoneConsistency.ps1 |
-| TIME-010 | Daylight Saving Time | Test-DSTConfiguration.ps1 |
-
-### Batch C — GPO completion (5 checks)
-
-| ID | Name | Script |
-|----|------|--------|
-| GPO-007 | Empty GPOs | Test-EmptyGPOs.ps1 |
-| GPO-008 | Disabled GPO Links | Test-DisabledGPOLinks.ps1 |
-| GPO-009 | Blocked Inheritance | Test-BlockedInheritance.ps1 |
-| GPO-010 | GPO Link Order | Test-GPOLinkOrder.ps1 |
-| GPO-011 | Cross-Domain GPO Links | Test-CrossDomainGPOLinks.ps1 |
-
-### Batch D — DNS completion (5 checks)
-
-| ID | Name | Script |
-|----|------|--------|
-| DNS-008 | Aging Configuration | Test-DNSAging.ps1 |
-| DNS-009 | Reverse Lookup Zones | Test-ReverseLookupZones.ps1 |
-| DNS-010 | Conditional Forwarders | Test-ConditionalForwarders.ps1 |
-| DNS-011 | DNS Recursion Settings | Test-DNSRecursion.ps1 |
-| DNS-012 | DNSSEC Configuration | Test-DNSSECConfig.ps1 |
-
-### Batch E — Operational/Config (10 checks)
-
-| ID | Name | Script |
-|----|------|--------|
-| OPS-001 | DIT File Location | Test-DITLocation.ps1 |
-| OPS-002 | Log File Location | Test-LogFileLocation.ps1 |
-| OPS-003 | SYSVOL Location | Test-SYSVOLLocation.ps1 |
-| OPS-004 | Garbage Collection | Test-GarbageCollection.ps1 |
-| OPS-005 | Schema Version | Test-SchemaVersion.ps1 |
-| OPS-006 | Forest Functional Level | Test-ForestFunctionalLevel.ps1 |
-| OPS-007 | Domain Functional Level | Test-DomainFunctionalLevel.ps1 |
-| OPS-008 | LDAP Signing Requirements | Test-LDAPSigning.ps1 |
-| OPS-009 | LDAPS Configuration | Test-LDAPSConfig.ps1 |
-| OPS-010 | RODC Health | Test-RODCHealth.ps1 |
+For the next expansion, consult `Documentation/ADST-Comparison-Gap-Analysis.md` and `Documentation/BUILD-PLAN-COMPREHENSIVE.md` for additional checks from the ADST gap analysis.
 
 ---
 
