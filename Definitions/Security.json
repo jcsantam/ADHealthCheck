@@ -321,6 +321,230 @@
       "Version": "2.0",
       "Help": "Validates Kerberos ticket policy settings in the Default Domain Policy. Misconfigured settings (excessive clock skew tolerance, very long ticket lifetimes) weaken Kerberos security or cause authentication failures.",
       "Remediation": "1. Open GPMC and edit the Default Domain Policy. 2. Navigate to Computer Configuration > Windows Settings > Security Settings > Account Policies > Kerberos Policy. 3. Recommended settings: Max ticket age 10 hours, Max renew age 7 days, Max service ticket 600 minutes, Max clock skew 5 minutes. 4. Test changes in a non-production environment first - Kerberos policy affects all domain users."
+    },
+    {
+      "CheckId": "SEC-010",
+      "CheckName": "AdminSDHolder Integrity",
+      "Category": "Security",
+      "Severity": "High",
+      "ScriptPath": "Test-AdminSDHolder.ps1",
+      "PassMessage": "AdminSDHolder integrity is healthy - no orphaned adminCount accounts or unexpected ACEs",
+      "FailMessage": "AdminSDHolder integrity issues detected",
+      "EvaluationRules": [
+        {
+          "RuleId": "SEC-010-UNEXPECTED-ACE",
+          "Condition": "Any(IssueType == 'UnexpectedACE')",
+          "Status": "Warning",
+          "Severity": "high",
+          "Message": "Unexpected principal found with Allow permissions on AdminSDHolder object"
+        },
+        {
+          "RuleId": "SEC-010-ORPHANED-ADMINCOUNT",
+          "Condition": "Any(IssueType == 'OrphanedAdminCount')",
+          "Status": "Fail",
+          "Severity": "high",
+          "Message": "Accounts with orphaned adminCount=1 detected - no longer in privileged groups but ACL is locked"
+        },
+        {
+          "RuleId": "SEC-010-HASISSUE",
+          "Condition": "Any(HasIssue == true)",
+          "Status": "Fail",
+          "Severity": "high",
+          "Message": "AdminSDHolder integrity issue detected"
+        }
+      ],
+      "IsEnabled": true,
+      "Version": "2.0",
+      "Help": "The AdminSDHolder object holds an ACL template that is automatically applied (every 60 minutes by SDProp) to all members of protected groups such as Domain Admins, Enterprise Admins, Schema Admins, and Administrators. Orphaned adminCount=1 accounts are no longer in any privileged group but SDProp no longer corrects their ACL, potentially leaving them as hidden persistence vectors. Unexpected ACEs on the AdminSDHolder itself could allow attackers to grant themselves persistent admin rights.",
+      "Remediation": "For orphaned adminCount accounts: 1. Verify the account is not supposed to be in a privileged group. 2. Clear adminCount: Set-ADUser -Identity <account> -Clear adminCount. 3. Restore the default ACL by running: dsacls 'CN=<account>,<DN>' /resetDefaultDACL. For unexpected ACEs on AdminSDHolder: 1. Run Get-Acl 'AD:CN=AdminSDHolder,CN=System,<domainDN>' | Select -ExpandProperty Access. 2. Remove unexpected ACEs: (Get-Acl 'AD:CN=AdminSDHolder,...').RemoveAccessRule($ace). 3. Set the modified ACL back: Set-Acl."
+    },
+    {
+      "CheckId": "SEC-011",
+      "CheckName": "LAPS Deployment",
+      "Category": "Security",
+      "Severity": "High",
+      "ScriptPath": "Test-LAPSDeployment.ps1",
+      "PassMessage": "LAPS is deployed with adequate coverage",
+      "FailMessage": "LAPS deployment issues detected",
+      "EvaluationRules": [
+        {
+          "RuleId": "SEC-011-NO-SCHEMA",
+          "Condition": "Any(LAPSSchemaExtended == false)",
+          "Status": "Fail",
+          "Severity": "high",
+          "Message": "LAPS schema extension not found - LAPS is not deployed in the domain"
+        },
+        {
+          "RuleId": "SEC-011-LOW-COVERAGE",
+          "Condition": "Any(LAPSCoveragePercent < 50)",
+          "Status": "Fail",
+          "Severity": "high",
+          "Message": "LAPS coverage is critically low - fewer than 50% of computers have LAPS passwords"
+        },
+        {
+          "RuleId": "SEC-011-HASISSUE",
+          "Condition": "Any(HasIssue == true)",
+          "Status": "Warning",
+          "Severity": "medium",
+          "Message": "LAPS deployment issue detected"
+        }
+      ],
+      "IsEnabled": true,
+      "Version": "2.0",
+      "Help": "Microsoft Local Administrator Password Solution (LAPS) randomizes and manages the local Administrator password on domain-joined computers, storing it in AD as a confidential attribute (ms-Mcs-AdmPwd). Without LAPS, local admin passwords are typically the same across all machines, enabling Pass-the-Hash lateral movement from any compromised host. With LAPS, compromising one machine's local admin doesn't help attackers on other machines.",
+      "Remediation": "1. Download LAPS from Microsoft: Install-Module LAPS or download the MSI from Microsoft. 2. Extend the AD schema: Update-AdmPwdADSchema. 3. Set permissions: Set-AdmPwdComputerSelfPermission -OrgUnit <OU>. 4. Configure the LAPS GPO: Computer Config > Admin Templates > LAPS > Enable password management. 5. Deploy the LAPS client MSI to all computers via GPO software installation. 6. Verify: Get-AdmPwdPassword -ComputerName <computer>."
+    },
+    {
+      "CheckId": "SEC-012",
+      "CheckName": "Protected Users Group",
+      "Category": "Security",
+      "Severity": "Medium",
+      "ScriptPath": "Test-ProtectedUsersGroup.ps1",
+      "PassMessage": "All Tier-0 privileged accounts are in the Protected Users group",
+      "FailMessage": "Privileged accounts not in Protected Users group",
+      "EvaluationRules": [
+        {
+          "RuleId": "SEC-012-NOT-PROTECTED",
+          "Condition": "Any(IsInProtectedUsers == false)",
+          "Status": "Warning",
+          "Severity": "medium",
+          "Message": "Privileged accounts found that are not members of Protected Users"
+        },
+        {
+          "RuleId": "SEC-012-HASISSUE",
+          "Condition": "Any(HasIssue == true)",
+          "Status": "Warning",
+          "Severity": "medium",
+          "Message": "Protected Users group issue detected"
+        }
+      ],
+      "IsEnabled": true,
+      "Version": "2.0",
+      "Help": "The Protected Users security group (introduced in Windows Server 2012 R2) provides additional Kerberos protections for its members: no NTLM authentication, no DES or RC4 encryption, no credential caching, no delegation, and TGTs expire after 4 hours. Adding Domain Admins, Enterprise Admins, and other Tier-0 accounts to Protected Users significantly reduces the attack surface if a DC is compromised. Note: test compatibility before adding service accounts - they cannot use NTLM or basic delegation.",
+      "Remediation": "1. Test impact in a lab first - Protected Users restrictions break services that rely on NTLM or delegation. 2. Add privileged accounts: Add-ADGroupMember -Identity 'Protected Users' -Members <account>. 3. Prioritize: Domain Admins, Enterprise Admins, Schema Admins, and dedicated admin accounts. 4. Do NOT add service accounts to Protected Users unless you have verified they use Kerberos and not NTLM. 5. Monitor for authentication failures after adding accounts."
+    },
+    {
+      "CheckId": "SEC-013",
+      "CheckName": "Audit Policy Configuration",
+      "Category": "Security",
+      "Severity": "High",
+      "ScriptPath": "Test-AuditPolicy.ps1",
+      "PassMessage": "All required audit policy subcategories are configured on domain controllers",
+      "FailMessage": "Missing critical audit policy subcategories detected",
+      "EvaluationRules": [
+        {
+          "RuleId": "SEC-013-MISSING-AUDIT",
+          "Condition": "Any(MissingCount > 0)",
+          "Status": "Fail",
+          "Severity": "high",
+          "Message": "One or more critical audit policy subcategories are not configured on a domain controller"
+        },
+        {
+          "RuleId": "SEC-013-HASISSUE",
+          "Condition": "Any(HasIssue == true)",
+          "Status": "Fail",
+          "Severity": "high",
+          "Message": "Audit policy configuration issue detected"
+        }
+      ],
+      "IsEnabled": true,
+      "Version": "2.0",
+      "Help": "Windows Advanced Audit Policy controls which security events are written to the Security event log. Without proper audit configuration, critical security events such as failed logons, privilege use, directory service changes, and account management changes go unlogged. This makes it impossible to detect attacks in progress or reconstruct incidents after the fact. CIS Benchmarks and Microsoft security baselines specify minimum required subcategories for domain controllers.",
+      "Remediation": "1. Configure via Default Domain Controllers Policy GPO: Computer Config > Windows Settings > Security Settings > Advanced Audit Policy. 2. Use auditpol.exe to verify: auditpol /get /category:*. 3. Key categories to enable: Account Logon (Success/Failure), Account Management (Success/Failure), Logon/Logoff (Success/Failure), DS Access (Success), Policy Change (Success), Privilege Use (Success/Failure). 4. Consider deploying Microsoft Security Compliance Toolkit baselines for DCs."
+    },
+    {
+      "CheckId": "SEC-014",
+      "CheckName": "Service Account Permissions",
+      "Category": "Security",
+      "Severity": "Critical",
+      "ScriptPath": "Test-ServiceAccountPerms.ps1",
+      "PassMessage": "All service accounts have acceptable permission levels",
+      "FailMessage": "Service accounts with excessive permissions detected",
+      "EvaluationRules": [
+        {
+          "RuleId": "SEC-014-SENSITIVE-SVC",
+          "Condition": "Any(IssueType == 'SensitiveGroupMember')",
+          "Status": "Fail",
+          "Severity": "critical",
+          "Message": "Kerberoastable service account with sensitive group membership detected - domain compromise risk"
+        },
+        {
+          "RuleId": "SEC-014-PWD-NEVER-EXPIRES",
+          "Condition": "Any(IssueType == 'PasswordNeverExpires')",
+          "Status": "Warning",
+          "Severity": "medium",
+          "Message": "Service account with PasswordNeverExpires=true detected - extended Kerberoast cracking window"
+        },
+        {
+          "RuleId": "SEC-014-HASISSUE",
+          "Condition": "Any(HasIssue == true)",
+          "Status": "Warning",
+          "Severity": "medium",
+          "Message": "Service account permission issue detected"
+        }
+      ],
+      "IsEnabled": true,
+      "Version": "2.0",
+      "Help": "Service accounts with SPNs (Service Principal Names) are vulnerable to Kerberoasting - an offline attack where an attacker requests a Kerberos service ticket and cracks the encrypted ticket offline to recover the account password. If such an account is also a Domain Admin or has other sensitive privileges, cracking the password gives the attacker immediate domain admin access. Service accounts should follow least privilege: only the permissions required for the service, never Domain Admin.",
+      "Remediation": "1. Remove service accounts from privileged groups immediately - create dedicated service accounts with minimum required permissions. 2. For accounts that must be Kerberoastable, use long random passwords (25+ chars): Set-ADAccountPassword -Identity <svc> -Reset -NewPassword (ConvertTo-SecureString -AsPlainText (New-Guid).Guid -Force). 3. Consider using Group Managed Service Accounts (gMSA) which use 256-bit auto-rotating passwords, eliminating Kerberoast risk: New-ADServiceAccount, Install-ADServiceAccount. 4. Enable Password Never Expires only when absolutely necessary and mitigate with long complex passwords."
+    },
+    {
+      "CheckId": "SEC-015",
+      "CheckName": "Stale Computer Accounts Detailed",
+      "Category": "Security",
+      "Severity": "Medium",
+      "ScriptPath": "Test-StaleComputerAccounts.ps1",
+      "PassMessage": "No stale computer accounts detected",
+      "FailMessage": "Stale computer accounts detected",
+      "EvaluationRules": [
+        {
+          "RuleId": "SEC-015-DOUBLE-STALE",
+          "Condition": "Any(IsDoubleStale == true)",
+          "Status": "Fail",
+          "Severity": "high",
+          "Message": "Computer accounts with both stale logon and stale password detected - high risk accounts"
+        },
+        {
+          "RuleId": "SEC-015-STALE",
+          "Condition": "Any(HasIssue == true)",
+          "Status": "Warning",
+          "Severity": "medium",
+          "Message": "Stale computer accounts detected - not authenticated in 90+ days"
+        }
+      ],
+      "IsEnabled": true,
+      "Version": "2.0",
+      "Help": "Stale computer accounts (not authenticated in 90+ days) pose security risks: they can be hijacked for lateral movement, may run unpatched software, and inflate your asset inventory. Double-stale accounts (stale logon AND stale password) are particularly risky because they cannot automatically renew their machine password, indicating the computer may be permanently offline but the account remains enabled and usable for Pass-the-Hash or relay attacks.",
+      "Remediation": "1. Disable stale accounts first: Get-ADComputer -Filter {Enabled -eq $true} | where {$_.lastLogonTimestamp -lt (Get-Date).AddDays(-90).ToFileTime()} | Disable-ADAccount. 2. After 30-day observation period, delete confirmed stale accounts. 3. Implement lifecycle process: automated 90-day disable, 180-day deletion. 4. Use AD cleanup tools like AD Tidy or scripts from Get-ADComputer pipeline. 5. Verify with asset management before deleting - some machines have extended offline periods (kiosks, seasonal equipment)."
+    },
+    {
+      "CheckId": "SEC-016",
+      "CheckName": "Schema Admins Membership",
+      "Category": "Security",
+      "Severity": "Critical",
+      "ScriptPath": "Test-SchemaAdminsMembership.ps1",
+      "PassMessage": "Schema Admins group has acceptable membership (empty or Administrator only)",
+      "FailMessage": "Schema Admins group contains unexpected members",
+      "EvaluationRules": [
+        {
+          "RuleId": "SEC-016-NON-STANDARD-MEMBER",
+          "Condition": "Any(IsBuiltIn == false)",
+          "Status": "Fail",
+          "Severity": "critical",
+          "Message": "Schema Admins contains non-standard members - group should be empty when not performing schema changes"
+        },
+        {
+          "RuleId": "SEC-016-HASISSUE",
+          "Condition": "Any(HasIssue == true)",
+          "Status": "Warning",
+          "Severity": "high",
+          "Message": "Schema Admins membership issue detected"
+        }
+      ],
+      "IsEnabled": true,
+      "Version": "2.0",
+      "Help": "The Schema Admins group has unique forest-wide power: members can modify the Active Directory schema, including adding attributes, creating object classes, and changing indexing. Schema changes are permanent and forest-wide - there is no undo. Best practice is to keep Schema Admins completely empty (or contain only the built-in Administrator account) at all times, adding members only when an authorized schema upgrade is in progress, then removing them immediately after. Any persistent membership is a red flag for compromise or misconfiguration.",
+      "Remediation": "1. Identify all current members: Get-ADGroupMember 'Schema Admins' -Recursive. 2. Remove any non-Administrator members: Remove-ADGroupMember -Identity 'Schema Admins' -Members <account>. 3. If Administrator is the only member, consider removing it too for maximum security. 4. Set up monitoring alerts: anytime Schema Admins membership changes, alert the security team immediately. 5. When schema changes are required, follow a documented process: add account, perform change, remove account, verify removal."
     }
   ]
 }

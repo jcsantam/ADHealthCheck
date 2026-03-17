@@ -242,19 +242,20 @@ Each check needs an entry in its `Definitions/<Category>.json`:
 
 ---
 
-## Implemented Checks (50 total — v2.0.0)
+## Implemented Checks (99 total — v2.0.0-beta)
 
 | Category | IDs | Count |
 |----------|-----|-------|
 | Replication | REP-001–REP-010 | 10 |
 | DC Health | DC-001–DC-010 | 10 |
-| Security | SEC-002–SEC-007, SEC-009 | 7 |
-| DNS | DNS-001–DNS-005, DNS-007 | 6 |
-| GPO | GPO-002–GPO-005 | 4 |
+| Security | SEC-001–SEC-016 | 16 |
+| DNS | DNS-001–DNS-005, DNS-007–DNS-012 | 11 |
+| GPO | GPO-002–GPO-011 | 10 |
 | Database | DB-001, DB-002, DB-004 | 3 |
 | Backup | BACKUP-001–BACKUP-003 | 3 |
-| Operational | FSMO-001, FSMO-002, TRUST-001, TRUST-002, OPS-SiteTopology | 5 |
-| Time | TIME-001, TIME-002 | 2 |
+| Operational | FSMO-001, FSMO-002, TRUST-001, TRUST-002, OPS-SiteTopology, OPS-006–OPS-015 | 15 |
+| Time | TIME-001–TIME-010 | 10 |
+| SPNConflicts | SEC-007 (SPN) | 1 |
 
 ---
 
@@ -329,18 +330,6 @@ Priority order from gap analysis. Build in batches of 10–20.
 | OPS-008 | LDAP Signing Requirements | Test-LDAPSigning.ps1 |
 | OPS-009 | LDAPS Configuration | Test-LDAPSConfig.ps1 |
 | OPS-010 | RODC Health | Test-RODCHealth.ps1 |
-
-### Batch F — Security completion (7 checks)
-
-| ID | Name | Script |
-|----|------|--------|
-| SEC-001 | AdminSDHolder Integrity | Test-AdminSDHolder.ps1 |
-| SEC-011 | LAPS Deployment | Test-LAPSDeployment.ps1 |
-| SEC-012 | Protected Users Group | Test-ProtectedUsersGroup.ps1 |
-| SEC-013 | Audit Policy Configuration | Test-AuditPolicy.ps1 |
-| SEC-014 | Service Account Permissions | Test-ServiceAccountPerms.ps1 |
-| SEC-015 | Stale Computer Accounts (detailed) | Test-StaleComputerAccounts.ps1 |
-| SEC-016 | Schema Admins Membership | Test-SchemaAdminsMembership.ps1 |
 
 ### Batch G — Database completion (4 checks)
 
