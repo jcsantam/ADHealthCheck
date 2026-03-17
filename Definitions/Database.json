@@ -168,6 +168,157 @@
       "Version": "2.0",
       "Help": "Analyzes NTDS.dit database file size relative to transaction logs to estimate white space (reclaimed space from deleted objects). Excessive white space wastes disk and can degrade performance.",
       "Remediation": "1. If log count is high, fix replication first (see DB-003). 2. To reclaim white space perform offline defragmentation (see DB-002). 3. Consider enabling AD Recycle Bin to reduce permanent deletions (see BACKUP-003). 4. Monitor log growth rate to detect replication issues early."
+    },
+    {
+      "CheckId": "DB-005",
+      "CheckName": "Database Size and Disk Capacity",
+      "Category": "Database",
+      "Severity": "High",
+      "ScriptPath": "Test-DatabaseGrowthRate.ps1",
+      "PassMessage": "NTDS database size and disk capacity are within acceptable limits on all DCs",
+      "FailMessage": "NTDS database size or disk capacity issues detected",
+      "EvaluationRules": [
+        {
+          "RuleId": "DB-005-CRITICAL-SIZE",
+          "Condition": "Any(DatabaseSizeGB > 50)",
+          "Status": "Fail",
+          "Severity": "critical",
+          "Message": "NTDS.dit exceeds 50 GB on one or more DCs - investigate object bloat"
+        },
+        {
+          "RuleId": "DB-005-LOW-DISK",
+          "Condition": "Any(FreeDiskGB < 2)",
+          "Status": "Fail",
+          "Severity": "critical",
+          "Message": "Critical disk space shortage on NTDS volume - less than 2 GB free"
+        },
+        {
+          "RuleId": "DB-005-WARN-SIZE",
+          "Condition": "Any(DatabaseSizeGB > 10)",
+          "Status": "Warning",
+          "Severity": "high",
+          "Message": "NTDS.dit exceeds 10 GB on one or more DCs - monitor growth trend"
+        },
+        {
+          "RuleId": "DB-005-HASISSUE",
+          "Condition": "Any(HasIssue == true)",
+          "Status": "Warning",
+          "Severity": "medium",
+          "Message": "Database size or disk capacity issue detected"
+        }
+      ],
+      "IsEnabled": true,
+      "Version": "2.0",
+      "Help": "Monitors NTDS.dit file size and available disk space on the NTDS volume. A growing database with insufficient free space can cause the AD DS service to stop when the disk fills up. Typical NTDS.dit sizes: small domain <1 GB, medium domain 1-5 GB, large enterprise 10-50 GB. Databases over 10 GB should be monitored for growth rate.",
+      "Remediation": "1. If disk space is low: add storage to the NTDS volume, or move NTDS to a larger volume using: ntdsutil 'activate instance ntds' 'files' 'move db to <new path>'. 2. If database is unexpectedly large: enable AD Recycle Bin, run offline defrag to reclaim white space. 3. Identify large OUs: Get-ADObject -SearchScope Subtree -ResultSetSize $null | Group-Object ObjectClass | Sort Count -Descending. 4. Check for computer/user object bloat from provisioning tools."
+    },
+    {
+      "CheckId": "DB-006",
+      "CheckName": "Database Defragmentation Status",
+      "Category": "Database",
+      "Severity": "Medium",
+      "ScriptPath": "Test-IndexFragmentation.ps1",
+      "PassMessage": "NTDS database defragmentation is current on all DCs",
+      "FailMessage": "NTDS database defragmentation status issues detected",
+      "EvaluationRules": [
+        {
+          "RuleId": "DB-006-STALE-DEFRAG",
+          "Condition": "Any(DaysSinceDefrag > 365)",
+          "Status": "Warning",
+          "Severity": "medium",
+          "Message": "NTDS offline defragmentation not performed in over 1 year on one or more DCs"
+        },
+        {
+          "RuleId": "DB-006-HASISSUE",
+          "Condition": "Any(HasIssue == true)",
+          "Status": "Warning",
+          "Severity": "medium",
+          "Message": "Database defragmentation issue detected"
+        }
+      ],
+      "IsEnabled": true,
+      "Version": "2.0",
+      "Help": "The NTDS.dit database accumulates internal fragmentation and white space as objects are added and deleted. Online defragmentation runs automatically every 12 hours but can only reclaim space within existing database pages. Offline defragmentation (run with ntdsutil while AD DS is stopped) compacts the database file, reclaims all white space, rebuilds indexes, and can significantly reduce database size. Microsoft recommends offline defrag when white space exceeds 20% of database size.",
+      "Remediation": "1. Offline defrag requires stopping the AD DS service on a non-critical DC. 2. On the DC: Stop-Service NTDS -Force. 3. Run ntdsutil: ntdsutil 'activate instance ntds' 'files' 'compact to C:\\temp\\ntds' quit quit. 4. Replace the original: copy C:\\temp\\ntds\\ntds.dit C:\\Windows\\NTDS\\ntds.dit. 5. Delete old log files: del C:\\Windows\\NTDS\\*.log. 6. Start-Service NTDS. 7. The event ID 700 will be logged upon successful completion."
+    },
+    {
+      "CheckId": "DB-007",
+      "CheckName": "Deleted Object Accumulation",
+      "Category": "Database",
+      "Severity": "Medium",
+      "ScriptPath": "Test-DeletedObjectAccumulation.ps1",
+      "PassMessage": "Deleted object accumulation and tombstone lifetime are within acceptable parameters",
+      "FailMessage": "Deleted object accumulation or tombstone lifetime issues detected",
+      "EvaluationRules": [
+        {
+          "RuleId": "DB-007-TOMBSTONE-LOW",
+          "Condition": "Any(TombstoneTooLow == true)",
+          "Status": "Fail",
+          "Severity": "high",
+          "Message": "Tombstone lifetime is below 60 days - risk of replication inconsistency if DC is restored from backup"
+        },
+        {
+          "RuleId": "DB-007-BULK-DELETE",
+          "Condition": "Any(RecentDeletedCount > 500)",
+          "Status": "Warning",
+          "Severity": "high",
+          "Message": "More than 500 objects deleted in the last 30 days - verify bulk deletion was intentional"
+        },
+        {
+          "RuleId": "DB-007-HIGH-ACCUMULATION",
+          "Condition": "Any(DeletedCount > 10000)",
+          "Status": "Warning",
+          "Severity": "medium",
+          "Message": "More than 10,000 tombstoned objects detected - high deleted object accumulation"
+        },
+        {
+          "RuleId": "DB-007-HASISSUE",
+          "Condition": "Any(HasIssue == true)",
+          "Status": "Warning",
+          "Severity": "medium",
+          "Message": "Deleted object accumulation issue detected"
+        }
+      ],
+      "IsEnabled": true,
+      "Version": "2.0",
+      "Help": "When objects are deleted in AD they become tombstones (soft-deleted) for the duration of the tombstone lifetime (default 180 days) before being permanently purged. High tombstone counts can indicate accidental bulk deletions, misconfigured provisioning tools, or simply a large domain. The tombstone lifetime is critical for backup/restore: if a DC is restored from a backup older than the tombstone lifetime, it may re-introduce deleted objects causing replication conflicts (lingering objects).",
+      "Remediation": "1. Check tombstone lifetime: (Get-ADObject -Identity 'CN=Directory Service,CN=Windows NT,CN=Services,CN=Configuration,DC=...' -Properties tombstoneLifetime).tombstoneLifetime. 2. Set tombstone lifetime to 180 days if lower: Set-ADObject ... -Replace @{tombstoneLifetime=180}. 3. If bulk deletion is suspected, review recent deletions: Get-ADObject -IncludeDeletedObjects -Filter {isDeleted -eq $true} -Properties whenChanged | Sort whenChanged -Descending | Select -First 20. 4. Enable AD Recycle Bin to allow recovery: Enable-ADOptionalFeature 'Recycle Bin Feature'."
+    },
+    {
+      "CheckId": "DB-008",
+      "CheckName": "ESE Database Error Events",
+      "Category": "Database",
+      "Severity": "Critical",
+      "ScriptPath": "Test-ESEErrors.ps1",
+      "PassMessage": "No critical ESE database error events detected on domain controllers",
+      "FailMessage": "Critical ESE database error events detected",
+      "EvaluationRules": [
+        {
+          "RuleId": "DB-008-CRITICAL-EVENTS",
+          "Condition": "Any(CriticalEventCount > 0)",
+          "Status": "Fail",
+          "Severity": "critical",
+          "Message": "Critical ESENT database error events detected - database integrity may be compromised"
+        },
+        {
+          "RuleId": "DB-008-WARNING-EVENTS",
+          "Condition": "Any(WarningEventCount > 0)",
+          "Status": "Warning",
+          "Severity": "high",
+          "Message": "ESENT database warning events detected - monitor for escalation"
+        },
+        {
+          "RuleId": "DB-008-HASISSUE",
+          "Condition": "Any(HasIssue == true)",
+          "Status": "Warning",
+          "Severity": "high",
+          "Message": "ESE database event issue detected"
+        }
+      ],
+      "IsEnabled": true,
+      "Version": "2.0",
+      "Help": "ESENT (Extensible Storage Engine) is the database engine underlying NTDS.dit. ESENT logs critical events to the Application event log when it detects database corruption, dirty shutdowns, I/O errors, or checksum mismatches. These events must be investigated immediately - a corrupt NTDS database can cause AD DS to fail to start after a reboot. Key events: 454 (recovery failed), 508 (dirty shutdown), 510/512 (corruption detected), 533 (needs repair).",
+      "Remediation": "1. For dirty shutdown (Event 508/512/533): attempt soft recovery by starting AD DS service - ESENT will replay logs automatically. 2. If startup fails after dirty shutdown: run ntdsutil 'activate instance ntds' 'files' 'recover' to perform soft recovery. 3. For corruption events (454/510): run ntdsutil 'activate instance ntds' 'files' 'integrity' to check integrity. 4. If database is corrupt: restore from last good backup, or use ntdsutil 'semantic database analysis' to identify and fix issues. 5. After any fix, run dcdiag /test:advertising on all DCs to verify AD DS is fully functional."
     }
   ]
 }
