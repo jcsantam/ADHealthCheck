@@ -21,7 +21,7 @@
 
 .PARAMETER MaxParallelJobs
     Maximum number of checks to run in parallel
-    Default: 10
+    Default: 3
 
 .EXAMPLE
     .\Invoke-ADHealthCheck.ps1
@@ -57,7 +57,7 @@ param(
     
     [Parameter(Mandatory = $false)]
     [ValidateRange(1, 50)]
-    [int]$MaxParallelJobs = 10
+    [int]$MaxParallelJobs = 3
 )
 # Resolve script root - handles both direct execution and -File launch
 $scriptRoot = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $MyInvocation.MyCommand.Path }
