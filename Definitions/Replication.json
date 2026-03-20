@@ -1,474 +1,664 @@
-{
-  "Category": "Replication",
-  "Description": "Active Directory replication health checks",
-  "Version": "2.0",
-  "Checks": [
-    {
-      "CheckId": "REP-001",
-      "CheckName": "Replication Status",
-      "Category": "Replication",
-      "Severity": "Critical",
-      "ScriptPath": "Test-ReplicationStatus.ps1",
-      "PassMessage": "AD replication is healthy across all domain controllers",
-      "FailMessage": "AD replication failures detected",
-      "EvaluationRules": [
-        {
-          "RuleId": "REP-001-FAILED",
-          "Condition": "Any(LastSyncResult != 0)",
-          "Status": "Fail",
-          "Severity": "critical",
-          "Message": "AD replication failure detected between domain controllers"
-        },
-        {
-          "RuleId": "REP-001-HASISSUE",
-          "Condition": "Any(HasIssue == true)",
-          "Status": "Fail",
-          "Severity": "critical",
-          "Message": "Replication status issue detected"
-        }
-      ],
-      "IsEnabled": true,
-      "Version": "2.0",
-      "Help": "Checks the overall replication health across all DC pairs using repadmin. Failed replications prevent AD changes from propagating and can cause authentication and GPO inconsistencies.",
-      "Remediation": "1. Run: repadmin /replsummary to see which DCs have failures. 2. Run: repadmin /showrepl <DC> to see detailed errors. 3. Common fixes: repadmin /syncall /AdeP to force sync all partitions. 4. Check firewall rules between sites. 5. For persistent errors check Event ID 1311 in the Directory Service log."
-    },
-    {
-      "CheckId": "REP-002",
-      "CheckName": "Replication Errors",
-      "Category": "Replication",
-      "Severity": "Critical",
-      "ScriptPath": "Test-ReplicationErrors.ps1",
-      "PassMessage": "No replication errors detected in event logs",
-      "FailMessage": "Replication errors detected in event logs",
-      "EvaluationRules": [
-        {
-          "RuleId": "REP-002-ERRORS",
-          "Condition": "Any(ErrorCount > 0)",
-          "Status": "Fail",
-          "Severity": "critical",
-          "Message": "Active Directory replication errors found in event logs"
-        },
-        {
-          "RuleId": "REP-002-HASISSUE",
-          "Condition": "Any(HasIssue == true)",
-          "Status": "Fail",
-          "Severity": "critical",
-          "Message": "Replication error issue detected"
-        }
-      ],
-      "IsEnabled": true,
-      "Version": "2.0",
-      "Help": "Examines the Active Directory replication error log for failed replication attempts. Even occasional replication failures accumulate over time, causing USN rollback risks and stale data.",
-      "Remediation": "1. Run: repadmin /showrepl * /csv | ConvertFrom-Csv | Where-Object {$_.'Number of Failures' -gt 0}. 2. Identify the specific error code and search docs.microsoft.com for the error. 3. Common error 8453 (access denied): check AD replication permissions. 4. Error 1256 (remote RPC): check DNS and firewall. 5. Error 8606 (lingering objects): run repadmin /removelingeringobjects."
-    },
-    {
-      "CheckId": "REP-003",
-      "CheckName": "USN Rollback Detection",
-      "Category": "Replication",
-      "Severity": "Critical",
-      "ScriptPath": "Test-USNRollback.ps1",
-      "PassMessage": "No USN rollback detected on any domain controller",
-      "FailMessage": "USN rollback detected - immediate action required",
-      "EvaluationRules": [
-        {
-          "RuleId": "REP-003-USN-ROLLBACK",
-          "Condition": "Any(USNRollbackDetected == true)",
-          "Status": "Fail",
-          "Severity": "critical",
-          "Message": "USN rollback detected - replication is broken and data loss may have occurred"
-        },
-        {
-          "RuleId": "REP-003-HASISSUE",
-          "Condition": "Any(HasIssue == true)",
-          "Status": "Fail",
-          "Severity": "critical",
-          "Message": "USN rollback issue detected"
-        }
-      ],
-      "IsEnabled": true,
-      "Version": "2.0",
-      "Help": "Detects signs of USN rollback, which occurs when a DC is restored from snapshot without proper procedures. USN rollback causes inconsistent AD data across DCs and is very difficult to recover from.",
-      "Remediation": "1. If USN rollback is confirmed, the affected DC must be demoted and re-promoted. 2. Never restore a DC from a non-AD-aware snapshot. 3. Always use VSS-aware backups (Windows Server Backup) for DC restoration. 4. When using VMs, use VM Restore with AD awareness or use the VM-Generation-ID-aware hypervisors."
-    },
-    {
-      "CheckId": "REP-004",
-      "CheckName": "Replication Latency",
-      "Category": "Replication",
-      "Severity": "High",
-      "CriticalThreshold": 3600,
-      "WarningThreshold": 900,
-      "ScriptPath": "Test-ReplicationLatency.ps1",
-      "PassMessage": "Replication latency is within acceptable limits",
-      "FailMessage": "High replication latency detected",
-      "EvaluationRules": [
-        {
-          "RuleId": "REP-004-HASISSUE",
-          "Condition": "Any(HasIssue == true)",
-          "Status": "Fail",
-          "Severity": "high",
-          "Message": "Replication latency issue detected"
-        },
-        {
-          "RuleId": "REP-004-ISUNHEALTHY",
-          "Condition": "IsHealthy == false",
-          "Status": "Fail",
-          "Severity": "high",
-          "Message": "Replication latency check reported failure"
-        }
-      ],
-      "IsEnabled": true,
-      "Version": "2.0",
-      "Help": "Measures how long it takes for changes to replicate from one DC to all others. High latency means users may experience inconsistent AD data depending on which DC they authenticate against.",
-      "Remediation": "1. Review site link costs and replication intervals in AD Sites and Services. 2. Reduce replication interval on critical site links (minimum is 15 minutes). 3. Check for replication errors blocking convergence (see REP-002). 4. For urgent changes use: repadmin /syncall /Ade to force immediate replication."
-    },
-    {
-      "CheckId": "REP-005",
-      "CheckName": "SYSVOL Replication",
-      "Category": "Replication",
-      "Severity": "Critical",
-      "ScriptPath": "Test-SYSVOLReplication.ps1",
-      "PassMessage": "SYSVOL replication is healthy across all DCs",
-      "FailMessage": "SYSVOL replication issues detected",
-      "EvaluationRules": [
-        {
-          "RuleId": "REP-005-NOT-IN-SYNC",
-          "Condition": "Any(InSync == false)",
-          "Status": "Fail",
-          "Severity": "critical",
-          "Message": "SYSVOL is not in sync across domain controllers"
-        },
-        {
-          "RuleId": "REP-005-ERRORS",
-          "Condition": "Any(HasErrors == true)",
-          "Status": "Fail",
-          "Severity": "critical",
-          "Message": "SYSVOL replication errors detected"
-        },
-        {
-          "RuleId": "REP-005-BACKLOG",
-          "Condition": "Any(BacklogCount > 100)",
-          "Status": "Warning",
-          "Severity": "high",
-          "Message": "SYSVOL replication backlog is high"
-        },
-        {
-          "RuleId": "REP-005-HASISSUE",
-          "Condition": "Any(HasIssue == true)",
-          "Status": "Fail",
-          "Severity": "critical",
-          "Message": "SYSVOL replication issue detected"
-        }
-      ],
-      "IsEnabled": true,
-      "Version": "2.0",
-      "Help": "Checks SYSVOL replication health (DFSR or FRS). SYSVOL contains GPOs and logon scripts - inconsistent SYSVOL means different clients receive different policies depending on which DC they connect to.",
-      "Remediation": "1. Check DFSR health: Get-DfsrBacklog -DestinationComputerName <DC> -SourceComputerName <PDC>. 2. Force DFSR sync: dfsrdiag SyncNow /partner:<DC> /RGName:'Domain System Volume'. 3. For persistent issues perform a non-authoritative SYSVOL restore on the lagging DC. 4. Check Event Viewer DFS Replication log for errors."
-    },
-    {
-      "CheckId": "REP-006",
-      "CheckName": "Replication Queue",
-      "Category": "Replication",
-      "Severity": "High",
-      "CriticalThreshold": 100,
-      "WarningThreshold": 25,
-      "ScriptPath": "Test-ReplicationQueue.ps1",
-      "PassMessage": "Replication queues are within normal limits",
-      "FailMessage": "Replication queue backlog detected",
-      "EvaluationRules": [
-        {
-          "RuleId": "REP-006-CRITICAL-QUEUE",
-          "Condition": "Any(MaxQueue > 100)",
-          "Status": "Fail",
-          "Severity": "critical",
-          "Message": "Critical replication queue backlog - objects not replicating"
-        },
-        {
-          "RuleId": "REP-006-WARN-QUEUE",
-          "Condition": "Any(MaxQueue > 25)",
-          "Status": "Warning",
-          "Severity": "high",
-          "Message": "Elevated replication queue depth detected"
-        },
-        {
-          "RuleId": "REP-006-HASISSUE",
-          "Condition": "Any(HasIssue == true)",
-          "Status": "Warning",
-          "Severity": "high",
-          "Message": "Replication queue issue detected"
-        }
-      ],
-      "IsEnabled": true,
-      "Version": "2.0",
-      "Help": "Monitors the replication queue depth on each DC. A large queue indicates replication is falling behind, possibly due to bandwidth constraints or a high rate of AD changes.",
-      "Remediation": "1. Run: repadmin /queue <DC> to view pending replication operations. 2. Check inter-site link bandwidth and replication schedule in AD Sites and Services. 3. Increase site link replication frequency if needed. 4. Investigate bulk AD changes (large imports, password resets) that may be flooding the queue."
-    },
-    {
-      "CheckId": "REP-007",
-      "CheckName": "Failed Replications",
-      "Category": "Replication",
-      "Severity": "Critical",
-      "ScriptPath": "Test-FailedReplications.ps1",
-      "PassMessage": "No failed replications detected in event logs",
-      "FailMessage": "Failed replication events detected",
-      "EvaluationRules": [
-        {
-          "RuleId": "REP-007-FAILURES",
-          "Condition": "Any(FailureCount > 0)",
-          "Status": "Fail",
-          "Severity": "critical",
-          "Message": "Replication failure events found in event logs"
-        },
-        {
-          "RuleId": "REP-007-HASISSUE",
-          "Condition": "Any(HasIssue == true)",
-          "Status": "Fail",
-          "Severity": "critical",
-          "Message": "Failed replication issue detected"
-        }
-      ],
-      "IsEnabled": true,
-      "Version": "2.0",
-      "Help": "Counts total replication failures across all DC pairs. Persistent replication failures eventually cause the 60-day tombstone period to be exceeded, resulting in lingering objects.",
-      "Remediation": "1. Run: repadmin /replsummary to get the failure count summary. 2. Address each failing DC pair with: repadmin /showrepl <Source> <Destination>. 3. If failures exceed tombstone lifetime, run: repadmin /removelingeringobjects. 4. Consider increasing tombstone lifetime to 180 days (see BACKUP-004)."
-    },
-    {
-      "CheckId": "REP-008",
-      "CheckName": "Metadata Consistency",
-      "Category": "Replication",
-      "Severity": "High",
-      "ScriptPath": "Test-MetadataConsistency.ps1",
-      "PassMessage": "AD replication metadata is consistent across all DCs",
-      "FailMessage": "AD metadata inconsistencies detected",
-      "EvaluationRules": [
-        {
-          "RuleId": "REP-008-PHANTOM-DCS",
-          "Condition": "Any(PhantomDCs > 0)",
-          "Status": "Fail",
-          "Severity": "high",
-          "Message": "Phantom DC objects detected in AD metadata - orphaned server objects"
-        },
-        {
-          "RuleId": "REP-008-HASISSUE",
-          "Condition": "Any(HasIssue == true)",
-          "Status": "Fail",
-          "Severity": "high",
-          "Message": "Metadata consistency issue detected"
-        }
-      ],
-      "IsEnabled": true,
-      "Version": "2.0",
-      "Help": "Analyzes replication metadata to detect objects with unusually high version counters, which can indicate repeated conflicting updates or replication loops.",
-      "Remediation": "1. Identify objects with high version counts: repadmin /showobjmeta <DC> '<object DN>'. 2. Investigate who is repeatedly modifying these objects. 3. Check for conflicting updates from applications making frequent attribute changes. 4. Resolve replication conflicts if detected."
-    },
-    {
-      "CheckId": "REP-009",
-      "CheckName": "Lingering Objects",
-      "Category": "Replication",
-      "Severity": "High",
-      "ScriptPath": "Test-LingeringObjects.ps1",
-      "PassMessage": "No lingering objects detected",
-      "FailMessage": "Lingering objects detected - replication was interrupted",
-      "EvaluationRules": [
-        {
-          "RuleId": "REP-009-LINGERING",
-          "Condition": "Any(LingeringObjectCount > 0)",
-          "Status": "Fail",
-          "Severity": "high",
-          "Message": "Lingering objects detected - replication was interrupted beyond tombstone lifetime"
-        },
-        {
-          "RuleId": "REP-009-HASISSUE",
-          "Condition": "Any(HasIssue == true)",
-          "Status": "Fail",
-          "Severity": "high",
-          "Message": "Lingering objects issue detected"
-        }
-      ],
-      "IsEnabled": true,
-      "Version": "2.0",
-      "Help": "Detects objects that exist on some DCs but were deleted on others beyond the tombstone lifetime. Lingering objects cause replication conflicts and authentication anomalies for those accounts.",
-      "Remediation": "1. Run: repadmin /removelingeringobjects <TargetDC> <SourceDC> <NC DN> /Advisory_Mode first. 2. After reviewing, run without /Advisory_Mode to remove. 3. Enable Strict Replication Consistency to prevent future lingering objects: repadmin /regkey <DC> +strict. 4. Investigate why replication was suspended long enough for tombstone lifetime to expire."
-    },
-    {
-      "CheckId": "REP-010",
-      "CheckName": "Connection Objects",
-      "Category": "Replication",
-      "Severity": "Medium",
-      "ScriptPath": "Test-ConnectionObjects.ps1",
-      "PassMessage": "Replication connection objects are healthy",
-      "FailMessage": "Replication connection object issues detected",
-      "EvaluationRules": [
-        {
-          "RuleId": "REP-010-ORPHANED",
-          "Condition": "Any(OrphanedConnections > 5)",
-          "Status": "Fail",
-          "Severity": "high",
-          "Message": "Excessive orphaned replication connection objects detected"
-        },
-        {
-          "RuleId": "REP-010-DC-NO-CONN",
-          "Condition": "Any(DCsWithoutConnections > 1)",
-          "Status": "Fail",
-          "Severity": "high",
-          "Message": "Domain controllers found with no replication connections"
-        },
-        {
-          "RuleId": "REP-010-DISABLED",
-          "Condition": "Any(DisabledConnections > 0)",
-          "Status": "Warning",
-          "Severity": "medium",
-          "Message": "Disabled replication connection objects found"
-        },
-        {
-          "RuleId": "REP-010-HASISSUE",
-          "Condition": "Any(HasIssue == true)",
-          "Status": "Warning",
-          "Severity": "medium",
-          "Message": "Connection object issue detected"
-        }
-      ],
-      "IsEnabled": true,
-      "Version": "2.0",
-      "Help": "Verifies that replication connection objects exist between DCs in the same site and across sites. Missing connection objects mean replication will not occur between the affected DC pair.",
-      "Remediation": "1. Run: repadmin /showconn to list all connection objects. 2. Allow KCC to regenerate connections: repadmin /kcc <DC>. 3. In AD Sites and Services, manually create connection objects if KCC fails to do so. 4. Ensure all DCs are in the correct AD Site (based on IP subnet)."
-    },
-    {
-      "CheckId": "REP-011",
-      "CheckName": "KCC Errors",
-      "Category": "Replication",
-      "Severity": "High",
-      "ScriptPath": "Test-KCCErrors.ps1",
-      "PassMessage": "No KCC errors detected on any domain controller",
-      "FailMessage": "KCC errors detected in Directory Service event log",
-      "EvaluationRules": [
-        {
-          "RuleId": "REP-011-CRITICAL-KCC",
-          "Condition": "Any(KCCErrorCount > 10)",
-          "Status": "Fail",
-          "Severity": "critical",
-          "Message": "Critical number of KCC errors - replication topology cannot be maintained"
-        },
-        {
-          "RuleId": "REP-011-WARN-KCC",
-          "Condition": "Any(KCCErrorCount > 0)",
-          "Status": "Warning",
-          "Severity": "high",
-          "Message": "KCC errors detected - replication topology may be affected"
-        },
-        {
-          "RuleId": "REP-011-HASISSUE",
-          "Condition": "Any(HasIssue == true)",
-          "Status": "Warning",
-          "Severity": "high",
-          "Message": "KCC error issue detected"
-        }
-      ],
-      "IsEnabled": true,
-      "Version": "2.0",
-      "Help": "Checks for Knowledge Consistency Checker (KCC) errors in the Directory Service event log. KCC is responsible for automatically generating replication topology - errors mean the replication topology may be incomplete.",
-      "Remediation": "1. Review Directory Service event log for Event IDs 1311, 1265, 1925, 1926. 2. Run: repadmin /kcc <DC> to force KCC to recalculate topology. 3. Verify all DCs are reachable from all other DCs. 4. Check for orphaned connection objects in AD Sites and Services."
-    },
-    {
-      "CheckId": "REP-012",
-      "CheckName": "Site Link Topology",
-      "Category": "Replication",
-      "Severity": "High",
-      "ScriptPath": "Test-SiteLinkTopology.ps1",
-      "PassMessage": "AD site link topology is properly configured",
-      "FailMessage": "Site link topology issues detected",
-      "EvaluationRules": [
-        {
-          "RuleId": "REP-012-HIGH-INTERVAL",
-          "Condition": "Any(ReplicationInterval > 180)",
-          "Status": "Fail",
-          "Severity": "high",
-          "Message": "Site link replication interval exceeds 180 minutes - replication may be too infrequent"
-        },
-        {
-          "RuleId": "REP-012-HASISSUE",
-          "Condition": "Any(HasIssue == true)",
-          "Status": "Warning",
-          "Severity": "medium",
-          "Message": "Site link topology issue detected"
-        }
-      ],
-      "IsEnabled": true,
-      "Version": "2.0",
-      "Help": "Reviews AD site link configuration including replication intervals and costs. Misconfigured site links (very long intervals or very high costs) cause slow convergence of AD changes across sites.",
-      "Remediation": "1. Open AD Sites and Services > Inter-Site Transports > IP. 2. Review each site link - recommended replication interval is 15-60 minutes. 3. Set site link costs proportional to WAN bandwidth (lower cost = preferred path). 4. Ensure site links create a connected graph - every site must be reachable from every other site."
-    },
-    {
-      "CheckId": "REP-013",
-      "CheckName": "Bridgehead Server Health",
-      "Category": "Replication",
-      "Severity": "Medium",
-      "ScriptPath": "Test-BridgeheadServer.ps1",
-      "PassMessage": "Bridgehead server configuration is healthy",
-      "FailMessage": "Bridgehead server issues detected",
-      "EvaluationRules": [
-        {
-          "RuleId": "REP-013-HASISSUE",
-          "Condition": "Any(HasIssue == true)",
-          "Status": "Warning",
-          "Severity": "medium",
-          "Message": "Preferred bridgehead server is unreachable - inter-site replication may be affected"
-        }
-      ],
-      "IsEnabled": true,
-      "Version": "2.0",
-      "Help": "Checks for manually configured preferred bridgehead servers. Manual bridgeheads create a single point of failure - if the bridgehead DC goes offline, inter-site replication stops completely.",
-      "Remediation": "1. In AD Sites and Services, expand each site and check server properties for bridgehead entries. 2. Remove manual preferred bridgehead designations to let KCC choose automatically. 3. If bridgeheads are required, configure at least two per site per transport protocol. 4. Monitor bridgehead DCs closely and ensure they are reliable and well-resourced."
-    },
-    {
-      "CheckId": "REP-014",
-      "CheckName": "Replication Schedule Conflicts",
-      "Category": "Replication",
-      "Severity": "Medium",
-      "ScriptPath": "Test-ReplicationScheduleConflicts.ps1",
-      "PassMessage": "No replication schedule conflicts detected",
-      "FailMessage": "Replication schedule restrictions detected",
-      "EvaluationRules": [
-        {
-          "RuleId": "REP-014-HASISSUE",
-          "Condition": "Any(HasIssue == true)",
-          "Status": "Warning",
-          "Severity": "medium",
-          "Message": "Site link schedule heavily restricts replication windows (less than 50% availability)"
-        }
-      ],
-      "IsEnabled": true,
-      "Version": "2.0",
-      "Help": "Analyzes site link replication schedules to identify overly restrictive windows that limit replication availability. Schedules with less than 50% availability delay convergence of AD changes.",
-      "Remediation": "1. In AD Sites and Services, right-click the site link and select Properties > Change Schedule. 2. Enable replication during business hours at minimum. 3. For critical links use 24x7 availability. 4. Coordinate schedule changes with network team to avoid conflict with backup windows."
-    },
-    {
-      "CheckId": "REP-015",
-      "CheckName": "Naming Context Validation",
-      "Category": "Replication",
-      "Severity": "High",
-      "ScriptPath": "Test-NamingContextValidation.ps1",
-      "PassMessage": "All domain controllers have the expected naming contexts",
-      "FailMessage": "Naming context issues detected on domain controllers",
-      "EvaluationRules": [
-        {
-          "RuleId": "REP-015-MISSING-NCS",
-          "Condition": "Any(MissingNCCount > 0)",
-          "Status": "Fail",
-          "Severity": "high",
-          "Message": "Domain controller is missing one or more expected naming contexts"
-        },
-        {
-          "RuleId": "REP-015-HASISSUE",
-          "Condition": "Any(HasIssue == true)",
-          "Status": "Fail",
-          "Severity": "high",
-          "Message": "Naming context validation issue detected"
-        }
-      ],
-      "IsEnabled": true,
-      "Version": "2.0",
-      "Help": "Verifies that each DC holds all expected naming contexts (Domain NC, Configuration NC, Schema NC). Missing naming contexts indicate a partially failed DC promotion or serious replication issue.",
-      "Remediation": "1. Run: repadmin /showrepl <DC> to check which NCs are replicating. 2. Run: repadmin /syncall <DC> /Ade to pull all NCs from replication partners. 3. If an NC is missing after sync attempts, consider demoting and re-promoting the DC. 4. Ensure the DC has sufficient disk space for the full AD database."
-    }
-  ]
+﻿{
+    "Category":  "Replication",
+    "Description":  "Active Directory replication health checks",
+    "Version":  "2.0",
+    "Checks":  [
+                   {
+                       "CheckId":  "REP-001",
+                       "CheckName":  "Replication Status",
+                       "Category":  "Replication",
+                       "Severity":  "Critical",
+                       "ScriptPath":  "Test-ReplicationStatus.ps1",
+                       "PassMessage":  "AD replication is healthy across all domain controllers",
+                       "FailMessage":  "AD replication failures detected",
+                       "EvaluationRules":  [
+                                               {
+                                                   "RuleId":  "REP-001-FAILED",
+                                                   "Condition":  "Any(LastSyncResult != 0)",
+                                                   "Status":  "Fail",
+                                                   "Severity":  "critical",
+                                                   "Message":  "AD replication failure detected between domain controllers"
+                                               },
+                                               {
+                                                   "RuleId":  "REP-001-HASISSUE",
+                                                   "Condition":  "Any(HasIssue == true)",
+                                                   "Status":  "Fail",
+                                                   "Severity":  "critical",
+                                                   "Message":  "Replication status issue detected"
+                                               }
+                                           ],
+                       "IsEnabled":  true,
+                       "Version":  "2.0",
+                       "Help":  "Checks the overall replication health across all DC pairs using repadmin. Failed replications prevent AD changes from propagating and can cause authentication and GPO inconsistencies.",
+                       "Remediation":  "1. Run: repadmin /replsummary to see which DCs have failures. 2. Run: repadmin /showrepl \u003cDC\u003e to see detailed errors. 3. Common fixes: repadmin /syncall /AdeP to force sync all partitions. 4. Check firewall rules between sites. 5. For persistent errors check Event ID 1311 in the Directory Service log."
+                   },
+                   {
+                       "CheckId":  "REP-002",
+                       "CheckName":  "Replication Errors",
+                       "Category":  "Replication",
+                       "Severity":  "Critical",
+                       "ScriptPath":  "Test-ReplicationErrors.ps1",
+                       "PassMessage":  "No replication errors detected in event logs",
+                       "FailMessage":  "Replication errors detected in event logs",
+                       "EvaluationRules":  [
+                                               {
+                                                   "RuleId":  "REP-002-ERRORS",
+                                                   "Condition":  "Any(ErrorCount \u003e 0)",
+                                                   "Status":  "Fail",
+                                                   "Severity":  "critical",
+                                                   "Message":  "Active Directory replication errors found in event logs"
+                                               },
+                                               {
+                                                   "RuleId":  "REP-002-HASISSUE",
+                                                   "Condition":  "Any(HasIssue == true)",
+                                                   "Status":  "Fail",
+                                                   "Severity":  "critical",
+                                                   "Message":  "Replication error issue detected"
+                                               }
+                                           ],
+                       "IsEnabled":  true,
+                       "Version":  "2.0",
+                       "Help":  "Examines the Active Directory replication error log for failed replication attempts. Even occasional replication failures accumulate over time, causing USN rollback risks and stale data.",
+                       "Remediation":  "1. Run: repadmin /showrepl * /csv | ConvertFrom-Csv | Where-Object {$_.\u0027Number of Failures\u0027 -gt 0}. 2. Identify the specific error code and search docs.microsoft.com for the error. 3. Common error 8453 (access denied): check AD replication permissions. 4. Error 1256 (remote RPC): check DNS and firewall. 5. Error 8606 (lingering objects): run repadmin /removelingeringobjects."
+                   },
+                   {
+                       "CheckId":  "REP-003",
+                       "CheckName":  "USN Rollback Detection",
+                       "Category":  "Replication",
+                       "Severity":  "Critical",
+                       "ScriptPath":  "Test-USNRollback.ps1",
+                       "PassMessage":  "No USN rollback detected on any domain controller",
+                       "FailMessage":  "USN rollback detected - immediate action required",
+                       "EvaluationRules":  [
+                                               {
+                                                   "RuleId":  "REP-003-USN-ROLLBACK",
+                                                   "Condition":  "Any(USNRollbackDetected == true)",
+                                                   "Status":  "Fail",
+                                                   "Severity":  "critical",
+                                                   "Message":  "USN rollback detected - replication is broken and data loss may have occurred"
+                                               },
+                                               {
+                                                   "RuleId":  "REP-003-HASISSUE",
+                                                   "Condition":  "Any(HasIssue == true)",
+                                                   "Status":  "Fail",
+                                                   "Severity":  "critical",
+                                                   "Message":  "USN rollback issue detected"
+                                               }
+                                           ],
+                       "IsEnabled":  true,
+                       "Version":  "2.0",
+                       "Help":  "Detects signs of USN rollback, which occurs when a DC is restored from snapshot without proper procedures. USN rollback causes inconsistent AD data across DCs and is very difficult to recover from.",
+                       "Remediation":  "1. If USN rollback is confirmed, the affected DC must be demoted and re-promoted. 2. Never restore a DC from a non-AD-aware snapshot. 3. Always use VSS-aware backups (Windows Server Backup) for DC restoration. 4. When using VMs, use VM Restore with AD awareness or use the VM-Generation-ID-aware hypervisors."
+                   },
+                   {
+                       "CheckId":  "REP-004",
+                       "CheckName":  "Replication Latency",
+                       "Category":  "Replication",
+                       "Severity":  "High",
+                       "CriticalThreshold":  3600,
+                       "WarningThreshold":  900,
+                       "ScriptPath":  "Test-ReplicationLatency.ps1",
+                       "PassMessage":  "Replication latency is within acceptable limits",
+                       "FailMessage":  "High replication latency detected",
+                       "EvaluationRules":  [
+                                               {
+                                                   "RuleId":  "REP-004-HASISSUE",
+                                                   "Condition":  "Any(HasIssue == true)",
+                                                   "Status":  "Fail",
+                                                   "Severity":  "high",
+                                                   "Message":  "Replication latency issue detected"
+                                               },
+                                               {
+                                                   "RuleId":  "REP-004-ISUNHEALTHY",
+                                                   "Condition":  "IsHealthy == false",
+                                                   "Status":  "Fail",
+                                                   "Severity":  "high",
+                                                   "Message":  "Replication latency check reported failure"
+                                               }
+                                           ],
+                       "IsEnabled":  true,
+                       "Version":  "2.0",
+                       "Help":  "Measures how long it takes for changes to replicate from one DC to all others. High latency means users may experience inconsistent AD data depending on which DC they authenticate against.",
+                       "Remediation":  "1. Review site link costs and replication intervals in AD Sites and Services. 2. Reduce replication interval on critical site links (minimum is 15 minutes). 3. Check for replication errors blocking convergence (see REP-002). 4. For urgent changes use: repadmin /syncall /Ade to force immediate replication."
+                   },
+                   {
+                       "CheckId":  "REP-005",
+                       "CheckName":  "SYSVOL Replication",
+                       "Category":  "Replication",
+                       "Severity":  "Critical",
+                       "ScriptPath":  "Test-SYSVOLReplication.ps1",
+                       "PassMessage":  "SYSVOL replication is healthy across all DCs",
+                       "FailMessage":  "SYSVOL replication issues detected",
+                       "EvaluationRules":  [
+                                               {
+                                                   "RuleId":  "REP-005-NOT-IN-SYNC",
+                                                   "Condition":  "Any(InSync == false)",
+                                                   "Status":  "Fail",
+                                                   "Severity":  "critical",
+                                                   "Message":  "SYSVOL is not in sync across domain controllers"
+                                               },
+                                               {
+                                                   "RuleId":  "REP-005-ERRORS",
+                                                   "Condition":  "Any(HasErrors == true)",
+                                                   "Status":  "Fail",
+                                                   "Severity":  "critical",
+                                                   "Message":  "SYSVOL replication errors detected"
+                                               },
+                                               {
+                                                   "RuleId":  "REP-005-BACKLOG",
+                                                   "Condition":  "Any(BacklogCount \u003e 100)",
+                                                   "Status":  "Warning",
+                                                   "Severity":  "high",
+                                                   "Message":  "SYSVOL replication backlog is high"
+                                               },
+                                               {
+                                                   "RuleId":  "REP-005-HASISSUE",
+                                                   "Condition":  "Any(HasIssue == true)",
+                                                   "Status":  "Fail",
+                                                   "Severity":  "critical",
+                                                   "Message":  "SYSVOL replication issue detected"
+                                               }
+                                           ],
+                       "IsEnabled":  true,
+                       "Version":  "2.0",
+                       "Help":  "Checks SYSVOL replication health (DFSR or FRS). SYSVOL contains GPOs and logon scripts - inconsistent SYSVOL means different clients receive different policies depending on which DC they connect to.",
+                       "Remediation":  "1. Check DFSR health: Get-DfsrBacklog -DestinationComputerName \u003cDC\u003e -SourceComputerName \u003cPDC\u003e. 2. Force DFSR sync: dfsrdiag SyncNow /partner:\u003cDC\u003e /RGName:\u0027Domain System Volume\u0027. 3. For persistent issues perform a non-authoritative SYSVOL restore on the lagging DC. 4. Check Event Viewer DFS Replication log for errors."
+                   },
+                   {
+                       "CheckId":  "REP-006",
+                       "CheckName":  "Replication Queue",
+                       "Category":  "Replication",
+                       "Severity":  "High",
+                       "CriticalThreshold":  100,
+                       "WarningThreshold":  25,
+                       "ScriptPath":  "Test-ReplicationQueue.ps1",
+                       "PassMessage":  "Replication queues are within normal limits",
+                       "FailMessage":  "Replication queue backlog detected",
+                       "EvaluationRules":  [
+                                               {
+                                                   "RuleId":  "REP-006-CRITICAL-QUEUE",
+                                                   "Condition":  "Any(MaxQueue \u003e 100)",
+                                                   "Status":  "Fail",
+                                                   "Severity":  "critical",
+                                                   "Message":  "Critical replication queue backlog - objects not replicating"
+                                               },
+                                               {
+                                                   "RuleId":  "REP-006-WARN-QUEUE",
+                                                   "Condition":  "Any(MaxQueue \u003e 25)",
+                                                   "Status":  "Warning",
+                                                   "Severity":  "high",
+                                                   "Message":  "Elevated replication queue depth detected"
+                                               },
+                                               {
+                                                   "RuleId":  "REP-006-HASISSUE",
+                                                   "Condition":  "Any(HasIssue == true)",
+                                                   "Status":  "Warning",
+                                                   "Severity":  "high",
+                                                   "Message":  "Replication queue issue detected"
+                                               }
+                                           ],
+                       "IsEnabled":  true,
+                       "Version":  "2.0",
+                       "Help":  "Monitors the replication queue depth on each DC. A large queue indicates replication is falling behind, possibly due to bandwidth constraints or a high rate of AD changes.",
+                       "Remediation":  "1. Run: repadmin /queue \u003cDC\u003e to view pending replication operations. 2. Check inter-site link bandwidth and replication schedule in AD Sites and Services. 3. Increase site link replication frequency if needed. 4. Investigate bulk AD changes (large imports, password resets) that may be flooding the queue."
+                   },
+                   {
+                       "CheckId":  "REP-007",
+                       "CheckName":  "Failed Replications",
+                       "Category":  "Replication",
+                       "Severity":  "Critical",
+                       "ScriptPath":  "Test-FailedReplications.ps1",
+                       "PassMessage":  "No failed replications detected in event logs",
+                       "FailMessage":  "Failed replication events detected",
+                       "EvaluationRules":  [
+                                               {
+                                                   "RuleId":  "REP-007-FAILURES",
+                                                   "Condition":  "Any(FailureCount \u003e 0)",
+                                                   "Status":  "Fail",
+                                                   "Severity":  "critical",
+                                                   "Message":  "Replication failure events found in event logs"
+                                               },
+                                               {
+                                                   "RuleId":  "REP-007-HASISSUE",
+                                                   "Condition":  "Any(HasIssue == true)",
+                                                   "Status":  "Fail",
+                                                   "Severity":  "critical",
+                                                   "Message":  "Failed replication issue detected"
+                                               }
+                                           ],
+                       "IsEnabled":  true,
+                       "Version":  "2.0",
+                       "Help":  "Counts total replication failures across all DC pairs. Persistent replication failures eventually cause the 60-day tombstone period to be exceeded, resulting in lingering objects.",
+                       "Remediation":  "1. Run: repadmin /replsummary to get the failure count summary. 2. Address each failing DC pair with: repadmin /showrepl \u003cSource\u003e \u003cDestination\u003e. 3. If failures exceed tombstone lifetime, run: repadmin /removelingeringobjects. 4. Consider increasing tombstone lifetime to 180 days (see BACKUP-004)."
+                   },
+                   {
+                       "CheckId":  "REP-008",
+                       "CheckName":  "Metadata Consistency",
+                       "Category":  "Replication",
+                       "Severity":  "High",
+                       "ScriptPath":  "Test-MetadataConsistency.ps1",
+                       "PassMessage":  "AD replication metadata is consistent across all DCs",
+                       "FailMessage":  "AD metadata inconsistencies detected",
+                       "EvaluationRules":  [
+                                               {
+                                                   "RuleId":  "REP-008-PHANTOM-DCS",
+                                                   "Condition":  "Any(PhantomDCs \u003e 0)",
+                                                   "Status":  "Fail",
+                                                   "Severity":  "high",
+                                                   "Message":  "Phantom DC objects detected in AD metadata - orphaned server objects"
+                                               },
+                                               {
+                                                   "RuleId":  "REP-008-HASISSUE",
+                                                   "Condition":  "Any(HasIssue == true)",
+                                                   "Status":  "Fail",
+                                                   "Severity":  "high",
+                                                   "Message":  "Metadata consistency issue detected"
+                                               }
+                                           ],
+                       "IsEnabled":  true,
+                       "Version":  "2.0",
+                       "Help":  "Analyzes replication metadata to detect objects with unusually high version counters, which can indicate repeated conflicting updates or replication loops.",
+                       "Remediation":  "1. Identify objects with high version counts: repadmin /showobjmeta \u003cDC\u003e \u0027\u003cobject DN\u003e\u0027. 2. Investigate who is repeatedly modifying these objects. 3. Check for conflicting updates from applications making frequent attribute changes. 4. Resolve replication conflicts if detected."
+                   },
+                   {
+                       "CheckId":  "REP-009",
+                       "CheckName":  "Lingering Objects",
+                       "Category":  "Replication",
+                       "Severity":  "High",
+                       "ScriptPath":  "Test-LingeringObjects.ps1",
+                       "PassMessage":  "No lingering objects detected",
+                       "FailMessage":  "Lingering objects detected - replication was interrupted",
+                       "EvaluationRules":  [
+                                               {
+                                                   "RuleId":  "REP-009-LINGERING",
+                                                   "Condition":  "Any(LingeringObjectCount \u003e 0)",
+                                                   "Status":  "Fail",
+                                                   "Severity":  "high",
+                                                   "Message":  "Lingering objects detected - replication was interrupted beyond tombstone lifetime"
+                                               },
+                                               {
+                                                   "RuleId":  "REP-009-HASISSUE",
+                                                   "Condition":  "Any(HasIssue == true)",
+                                                   "Status":  "Fail",
+                                                   "Severity":  "high",
+                                                   "Message":  "Lingering objects issue detected"
+                                               }
+                                           ],
+                       "IsEnabled":  true,
+                       "Version":  "2.0",
+                       "Help":  "Detects objects that exist on some DCs but were deleted on others beyond the tombstone lifetime. Lingering objects cause replication conflicts and authentication anomalies for those accounts.",
+                       "Remediation":  "1. Run: repadmin /removelingeringobjects \u003cTargetDC\u003e \u003cSourceDC\u003e \u003cNC DN\u003e /Advisory_Mode first. 2. After reviewing, run without /Advisory_Mode to remove. 3. Enable Strict Replication Consistency to prevent future lingering objects: repadmin /regkey \u003cDC\u003e +strict. 4. Investigate why replication was suspended long enough for tombstone lifetime to expire."
+                   },
+                   {
+                       "CheckId":  "REP-010",
+                       "CheckName":  "Connection Objects",
+                       "Category":  "Replication",
+                       "Severity":  "Medium",
+                       "ScriptPath":  "Test-ConnectionObjects.ps1",
+                       "PassMessage":  "Replication connection objects are healthy",
+                       "FailMessage":  "Replication connection object issues detected",
+                       "EvaluationRules":  [
+                                               {
+                                                   "RuleId":  "REP-010-ORPHANED",
+                                                   "Condition":  "Any(OrphanedConnections \u003e 5)",
+                                                   "Status":  "Fail",
+                                                   "Severity":  "high",
+                                                   "Message":  "Excessive orphaned replication connection objects detected"
+                                               },
+                                               {
+                                                   "RuleId":  "REP-010-DC-NO-CONN",
+                                                   "Condition":  "Any(DCsWithoutConnections \u003e 1)",
+                                                   "Status":  "Fail",
+                                                   "Severity":  "high",
+                                                   "Message":  "Domain controllers found with no replication connections"
+                                               },
+                                               {
+                                                   "RuleId":  "REP-010-DISABLED",
+                                                   "Condition":  "Any(DisabledConnections \u003e 0)",
+                                                   "Status":  "Warning",
+                                                   "Severity":  "medium",
+                                                   "Message":  "Disabled replication connection objects found"
+                                               },
+                                               {
+                                                   "RuleId":  "REP-010-HASISSUE",
+                                                   "Condition":  "Any(HasIssue == true)",
+                                                   "Status":  "Warning",
+                                                   "Severity":  "medium",
+                                                   "Message":  "Connection object issue detected"
+                                               }
+                                           ],
+                       "IsEnabled":  true,
+                       "Version":  "2.0",
+                       "Help":  "Verifies that replication connection objects exist between DCs in the same site and across sites. Missing connection objects mean replication will not occur between the affected DC pair.",
+                       "Remediation":  "1. Run: repadmin /showconn to list all connection objects. 2. Allow KCC to regenerate connections: repadmin /kcc \u003cDC\u003e. 3. In AD Sites and Services, manually create connection objects if KCC fails to do so. 4. Ensure all DCs are in the correct AD Site (based on IP subnet)."
+                   },
+                   {
+                       "CheckId":  "REP-011",
+                       "CheckName":  "KCC Errors",
+                       "Category":  "Replication",
+                       "Severity":  "High",
+                       "ScriptPath":  "Test-KCCErrors.ps1",
+                       "PassMessage":  "No KCC errors detected on any domain controller",
+                       "FailMessage":  "KCC errors detected in Directory Service event log",
+                       "EvaluationRules":  [
+                                               {
+                                                   "RuleId":  "REP-011-CRITICAL-KCC",
+                                                   "Condition":  "Any(KCCErrorCount \u003e 10)",
+                                                   "Status":  "Fail",
+                                                   "Severity":  "critical",
+                                                   "Message":  "Critical number of KCC errors - replication topology cannot be maintained"
+                                               },
+                                               {
+                                                   "RuleId":  "REP-011-WARN-KCC",
+                                                   "Condition":  "Any(KCCErrorCount \u003e 0)",
+                                                   "Status":  "Warning",
+                                                   "Severity":  "high",
+                                                   "Message":  "KCC errors detected - replication topology may be affected"
+                                               },
+                                               {
+                                                   "RuleId":  "REP-011-HASISSUE",
+                                                   "Condition":  "Any(HasIssue == true)",
+                                                   "Status":  "Warning",
+                                                   "Severity":  "high",
+                                                   "Message":  "KCC error issue detected"
+                                               }
+                                           ],
+                       "IsEnabled":  true,
+                       "Version":  "2.0",
+                       "Help":  "Checks for Knowledge Consistency Checker (KCC) errors in the Directory Service event log. KCC is responsible for automatically generating replication topology - errors mean the replication topology may be incomplete.",
+                       "Remediation":  "1. Review Directory Service event log for Event IDs 1311, 1265, 1925, 1926. 2. Run: repadmin /kcc \u003cDC\u003e to force KCC to recalculate topology. 3. Verify all DCs are reachable from all other DCs. 4. Check for orphaned connection objects in AD Sites and Services."
+                   },
+                   {
+                       "CheckId":  "REP-012",
+                       "CheckName":  "Site Link Topology",
+                       "Category":  "Replication",
+                       "Severity":  "High",
+                       "ScriptPath":  "Test-SiteLinkTopology.ps1",
+                       "PassMessage":  "AD site link topology is properly configured",
+                       "FailMessage":  "Site link topology issues detected",
+                       "EvaluationRules":  [
+                                               {
+                                                   "RuleId":  "REP-012-HIGH-INTERVAL",
+                                                   "Condition":  "Any(ReplicationInterval \u003e 180)",
+                                                   "Status":  "Fail",
+                                                   "Severity":  "high",
+                                                   "Message":  "Site link replication interval exceeds 180 minutes - replication may be too infrequent"
+                                               },
+                                               {
+                                                   "RuleId":  "REP-012-HASISSUE",
+                                                   "Condition":  "Any(HasIssue == true)",
+                                                   "Status":  "Warning",
+                                                   "Severity":  "medium",
+                                                   "Message":  "Site link topology issue detected"
+                                               }
+                                           ],
+                       "IsEnabled":  true,
+                       "Version":  "2.0",
+                       "Help":  "Reviews AD site link configuration including replication intervals and costs. Misconfigured site links (very long intervals or very high costs) cause slow convergence of AD changes across sites.",
+                       "Remediation":  "1. Open AD Sites and Services \u003e Inter-Site Transports \u003e IP. 2. Review each site link - recommended replication interval is 15-60 minutes. 3. Set site link costs proportional to WAN bandwidth (lower cost = preferred path). 4. Ensure site links create a connected graph - every site must be reachable from every other site."
+                   },
+                   {
+                       "CheckId":  "REP-013",
+                       "CheckName":  "Bridgehead Server Health",
+                       "Category":  "Replication",
+                       "Severity":  "Medium",
+                       "ScriptPath":  "Test-BridgeheadServer.ps1",
+                       "PassMessage":  "Bridgehead server configuration is healthy",
+                       "FailMessage":  "Bridgehead server issues detected",
+                       "EvaluationRules":  [
+                                               {
+                                                   "RuleId":  "REP-013-HASISSUE",
+                                                   "Condition":  "Any(HasIssue == true)",
+                                                   "Status":  "Warning",
+                                                   "Severity":  "medium",
+                                                   "Message":  "Preferred bridgehead server is unreachable - inter-site replication may be affected"
+                                               }
+                                           ],
+                       "IsEnabled":  true,
+                       "Version":  "2.0",
+                       "Help":  "Checks for manually configured preferred bridgehead servers. Manual bridgeheads create a single point of failure - if the bridgehead DC goes offline, inter-site replication stops completely.",
+                       "Remediation":  "1. In AD Sites and Services, expand each site and check server properties for bridgehead entries. 2. Remove manual preferred bridgehead designations to let KCC choose automatically. 3. If bridgeheads are required, configure at least two per site per transport protocol. 4. Monitor bridgehead DCs closely and ensure they are reliable and well-resourced."
+                   },
+                   {
+                       "CheckId":  "REP-014",
+                       "CheckName":  "Replication Schedule Conflicts",
+                       "Category":  "Replication",
+                       "Severity":  "Medium",
+                       "ScriptPath":  "Test-ReplicationScheduleConflicts.ps1",
+                       "PassMessage":  "No replication schedule conflicts detected",
+                       "FailMessage":  "Replication schedule restrictions detected",
+                       "EvaluationRules":  [
+                                               {
+                                                   "RuleId":  "REP-014-HASISSUE",
+                                                   "Condition":  "Any(HasIssue == true)",
+                                                   "Status":  "Warning",
+                                                   "Severity":  "medium",
+                                                   "Message":  "Site link schedule heavily restricts replication windows (less than 50% availability)"
+                                               }
+                                           ],
+                       "IsEnabled":  true,
+                       "Version":  "2.0",
+                       "Help":  "Analyzes site link replication schedules to identify overly restrictive windows that limit replication availability. Schedules with less than 50% availability delay convergence of AD changes.",
+                       "Remediation":  "1. In AD Sites and Services, right-click the site link and select Properties \u003e Change Schedule. 2. Enable replication during business hours at minimum. 3. For critical links use 24x7 availability. 4. Coordinate schedule changes with network team to avoid conflict with backup windows."
+                   },
+                   {
+                       "CheckId":  "REP-015",
+                       "CheckName":  "Naming Context Validation",
+                       "Category":  "Replication",
+                       "Severity":  "High",
+                       "ScriptPath":  "Test-NamingContextValidation.ps1",
+                       "PassMessage":  "All domain controllers have the expected naming contexts",
+                       "FailMessage":  "Naming context issues detected on domain controllers",
+                       "EvaluationRules":  [
+                                               {
+                                                   "RuleId":  "REP-015-MISSING-NCS",
+                                                   "Condition":  "Any(MissingNCCount \u003e 0)",
+                                                   "Status":  "Fail",
+                                                   "Severity":  "high",
+                                                   "Message":  "Domain controller is missing one or more expected naming contexts"
+                                               },
+                                               {
+                                                   "RuleId":  "REP-015-HASISSUE",
+                                                   "Condition":  "Any(HasIssue == true)",
+                                                   "Status":  "Fail",
+                                                   "Severity":  "high",
+                                                   "Message":  "Naming context validation issue detected"
+                                               }
+                                           ],
+                       "IsEnabled":  true,
+                       "Version":  "2.0",
+                       "Help":  "Verifies that each DC holds all expected naming contexts (Domain NC, Configuration NC, Schema NC). Missing naming contexts indicate a partially failed DC promotion or serious replication issue.",
+                       "Remediation":  "1. Run: repadmin /showrepl \u003cDC\u003e to check which NCs are replicating. 2. Run: repadmin /syncall \u003cDC\u003e /Ade to pull all NCs from replication partners. 3. If an NC is missing after sync attempts, consider demoting and re-promoting the DC. 4. Ensure the DC has sufficient disk space for the full AD database."
+                   },
+                   {
+                       "CheckId":  "REP-016",
+                       "CheckName":  "ISTG Election Health",
+                       "Category":  "Replication",
+                       "Severity":  "High",
+                       "ScriptPath":  "Test-ISTGHealth.ps1",
+                       "PassMessage":  "ISTG is elected and reachable in all sites",
+                       "FailMessage":  "ISTG election or reachability issues detected",
+                       "EvaluationRules":  [
+                                               {
+                                                   "RuleId":  "REP-016-HASISSUE",
+                                                   "Condition":  "Any(HasIssue == true)",
+                                                   "Status":  "Fail",
+                                                   "Severity":  "high",
+                                                   "Message":  "ISTG election or reachability problem in one or more sites"
+                                               }
+                                           ],
+                       "Help":  "The Inter-Site Topology Generator (ISTG) creates connection objects for inter-site replication. Each site must have an elected ISTG DC. If missing or unreachable, the replication topology cannot be maintained automatically.",
+                       "Remediation":  "1. Run: repadmin /showism to view ISTG elections. 2. Verify the ISTG server is online. 3. Force KCC recalculation: repadmin /kcc \u003cDC\u003e. 4. Check AD Sites and Services for the ISTG attribute on affected site objects.",
+                       "IsEnabled":  true,
+                       "Version":  "2.0"
+                   },
+                   {
+                       "CheckId":  "REP-017",
+                       "CheckName":  "UTD Vector Analysis",
+                       "Category":  "Replication",
+                       "Severity":  "High",
+                       "ScriptPath":  "Test-UTDVectors.ps1",
+                       "PassMessage":  "UTD vectors are current across all DC partnerships",
+                       "FailMessage":  "Stale UTD vectors detected - replication partner not receiving updates",
+                       "EvaluationRules":  [
+                                               {
+                                                   "RuleId":  "REP-017-HASISSUE",
+                                                   "Condition":  "Any(HasIssue == true)",
+                                                   "Status":  "Fail",
+                                                   "Severity":  "high",
+                                                   "Message":  "One or more DCs have stale UTD vectors indicating isolated or lagging replication partners"
+                                               }
+                                           ],
+                       "Help":  "Up-to-dateness vectors track the highest USN received from each replication partner. Stale vectors indicate a DC has not received updates within the expected window, signaling isolation or link failure.",
+                       "Remediation":  "1. Run: repadmin /showvector /latency \u003cDomainDN\u003e. 2. Check: repadmin /showrepl. 3. Force sync: repadmin /syncall /AdeP. 4. Check network connectivity between stale DC pairs. 5. Review Directory Service event log for replication errors.",
+                       "IsEnabled":  true,
+                       "Version":  "2.0"
+                   },
+                   {
+                       "CheckId":  "REP-018",
+                       "CheckName":  "Conflict Object Detection",
+                       "Category":  "Replication",
+                       "Severity":  "Medium",
+                       "ScriptPath":  "Test-ConflictObjects.ps1",
+                       "PassMessage":  "No significant replication conflict objects detected",
+                       "FailMessage":  "Replication conflict objects (CNF) detected in AD",
+                       "EvaluationRules":  [
+                                               {
+                                                   "RuleId":  "REP-018-HASISSUE",
+                                                   "Condition":  "Any(HasIssue == true)",
+                                                   "Status":  "Warning",
+                                                   "Severity":  "medium",
+                                                   "Message":  "CNF conflict objects found indicating replication convergence issues"
+                                               }
+                                           ],
+                       "Help":  "CNF objects are created when two DCs modify the same object before replication converges. Many CNF objects indicate design or replication problems requiring cleanup.",
+                       "Remediation":  "1. Find CNF objects: Get-ADObject -LDAPFilter \"(name=*\\0ACNF:*)\" -SearchBase \u003cDomainDN\u003e. 2. Review each for merge vs delete. 3. Delete CNF duplicates where original is correct. 4. Fix root cause: reduce simultaneous modifications or improve replication latency.",
+                       "IsEnabled":  true,
+                       "Version":  "2.0"
+                   },
+                   {
+                       "CheckId":  "REP-019",
+                       "CheckName":  "Change Notification",
+                       "Category":  "Replication",
+                       "Severity":  "Low",
+                       "ScriptPath":  "Test-ChangeNotification.ps1",
+                       "PassMessage":  "Site link change notification configuration is acceptable",
+                       "FailMessage":  "Site links have very long replication intervals with change notification disabled",
+                       "EvaluationRules":  [
+                                               {
+                                                   "RuleId":  "REP-019-HASISSUE",
+                                                   "Condition":  "Any(HasIssue == true)",
+                                                   "Status":  "Warning",
+                                                   "Severity":  "low",
+                                                   "Message":  "Site link has change notification disabled with a long replication interval"
+                                               }
+                                           ],
+                       "Help":  "By default inter-site replication uses a scheduled interval (default 180 minutes). Enabling change notification on the siteLink options attribute causes near-real-time replication. Recommended for high-bandwidth WAN links.",
+                       "Remediation":  "1. In AD Sites and Services right-click the site link, select Properties. 2. Enable Change Notification by setting options bit 0 via ADSI Edit. 3. Via PowerShell: Set-ADObject -Identity \"CN=\u003cSiteLink\u003e,CN=IP,CN=Inter-Site Transports,CN=Sites,CN=Configuration,\u003cForestDN\u003e\" -Replace @{options=1}. 4. Only enable on high-bandwidth reliable WAN links.",
+                       "IsEnabled":  true,
+                       "Version":  "2.0"
+                   },
+                   {
+                       "CheckId":  "REP-020",
+                       "CheckName":  "Cross-Site Replication Health",
+                       "Category":  "Replication",
+                       "Severity":  "High",
+                       "ScriptPath":  "Test-CrossSiteReplication.ps1",
+                       "PassMessage":  "Cross-site replication is healthy across all site pairs",
+                       "FailMessage":  "Cross-site replication failures detected between sites",
+                       "EvaluationRules":  [
+                                               {
+                                                   "RuleId":  "REP-020-HASISSUE",
+                                                   "Condition":  "Any(HasIssue == true)",
+                                                   "Status":  "Fail",
+                                                   "Severity":  "high",
+                                                   "Message":  "Cross-site replication failures or staleness detected between AD sites"
+                                               }
+                                           ],
+                       "Help":  "Cross-site replication failures often indicate WAN link problems, firewall changes, or ISTG/bridgehead issues. Unlike intra-site failures, cross-site failures affect all DCs in remote sites simultaneously.",
+                       "Remediation":  "1. Run: repadmin /showrepl /csv to identify failing cross-site pairs. 2. Test connectivity on ports 135, 389, 445 between bridgehead servers. 3. Verify firewall rules allow AD replication between sites. 4. Force KCC: repadmin /kcc \u003cBridgeheadDC\u003e. 5. Check site link cost and schedule in AD Sites and Services.",
+                       "IsEnabled":  true,
+                       "Version":  "2.0"
+                   },
+                   {
+                       "CheckId":  "REP-021",
+                       "CheckName":  "Replication Failure History",
+                       "Category":  "Replication",
+                       "Severity":  "High",
+                       "ScriptPath":  "Test-ReplicationFailureHistory.ps1",
+                       "PassMessage":  "No consecutive replication failures detected across all DC partnerships",
+                       "FailMessage":  "Consecutive replication failures detected - persistent replication problem",
+                       "EvaluationRules":  [
+                                               {
+                                                   "RuleId":  "REP-021-CRITICAL",
+                                                   "Condition":  "Any(Severity == Critical)",
+                                                   "Status":  "Fail",
+                                                   "Severity":  "critical",
+                                                   "Message":  "10+ consecutive failures - partition may be approaching tombstone lifetime"
+                                               },
+                                               {
+                                                   "RuleId":  "REP-021-HASISSUE",
+                                                   "Condition":  "Any(HasIssue == true)",
+                                                   "Status":  "Fail",
+                                                   "Severity":  "high",
+                                                   "Message":  "Persistent replication failures detected between DC partners"
+                                               }
+                                           ],
+                       "Help":  "Consecutive failure counts indicate how many replication cycles have failed in a row. High counts (10+) mean the DC has not replicated a partition for an extended period. Failures exceeding tombstone lifetime require DC demotion.",
+                       "Remediation":  "1. Run: repadmin /showrepl /errorsonly. 2. Fix DNS: dcdiag /test:dns. 3. Fix time sync: w32tm /resync. 4. Error 1722 (RPC unavailable): check firewall/network. 5. Error 8606 (lingering objects): repadmin /removelingeringobjects. 6. If \u003e180 days behind: plan DC demotion and re-promotion.",
+                       "IsEnabled":  true,
+                       "Version":  "2.0"
+                   },
+                   {
+                       "CheckId":  "REP-022",
+                       "CheckName":  "DC Connection Object Audit",
+                       "Category":  "Replication",
+                       "Severity":  "Medium",
+                       "ScriptPath":  "Test-ConnectionObjectAudit.ps1",
+                       "PassMessage":  "Connection objects are consistent and healthy",
+                       "FailMessage":  "Connection object issues detected - stale or missing connections",
+                       "EvaluationRules":  [
+                                               {
+                                                   "RuleId":  "REP-022-HASISSUE",
+                                                   "Condition":  "Any(HasIssue == true)",
+                                                   "Status":  "Warning",
+                                                   "Severity":  "medium",
+                                                   "Message":  "Connection object issues: stale references, manual overrides, or missing inbound connections"
+                                               }
+                                           ],
+                       "Help":  "nTDSConnection objects define replication paths between DCs. The KCC manages these automatically. Manual connections can prevent topology optimization. Stale connections referencing decommissioned DCs must be removed.",
+                       "Remediation":  "1. View connections in AD Sites and Services under each DC NTDS Settings node. 2. Delete stale connections pointing to decommissioned DCs. 3. Force KCC rebuild: repadmin /kcc. 4. Remove stale via PowerShell: Get-ADObject -Filter {objectClass -eq \"nTDSConnection\"} | Where DistinguishedName -match \"oldDC\" | Remove-ADObject -Confirm:$false.",
+                       "IsEnabled":  true,
+                       "Version":  "2.0"
+                   },
+                   {
+                       "CheckId":  "REP-023",
+                       "CheckName":  "Inbound Replication Disabled",
+                       "Category":  "Replication",
+                       "Severity":  "Critical",
+                       "ScriptPath":  "Test-InboundReplDisabled.ps1",
+                       "PassMessage":  "Inbound and outbound replication is enabled on all DCs",
+                       "FailMessage":  "Replication is disabled on one or more DCs",
+                       "EvaluationRules":  [
+                                               {
+                                                   "RuleId":  "REP-023-INBOUND",
+                                                   "Condition":  "Any(InboundDisabled == true)",
+                                                   "Status":  "Fail",
+                                                   "Severity":  "critical",
+                                                   "Message":  "Inbound replication is disabled - DC is not receiving AD changes from partners"
+                                               },
+                                               {
+                                                   "RuleId":  "REP-023-HASISSUE",
+                                                   "Condition":  "Any(HasIssue == true)",
+                                                   "Status":  "Fail",
+                                                   "Severity":  "high",
+                                                   "Message":  "Replication disabled flag or registry setting detected on one or more DCs"
+                                               }
+                                           ],
+                       "Help":  "When inbound replication is disabled the DC stops accepting changes from partners. Left permanently, the DC will serve stale data and diverge to the point requiring full re-promotion.",
+                       "Remediation":  "1. Check: repadmin /options \u003cDC\u003e. 2. Re-enable inbound: repadmin /options \u003cDC\u003e -DISABLE_INBOUND_REPL. 3. Re-enable outbound: repadmin /options \u003cDC\u003e -DISABLE_OUTBOUND_REPL. 4. Force sync: repadmin /syncall \u003cDC\u003e /AdeP. 5. Verify: repadmin /showrepl \u003cDC\u003e. 6. If registry Repl Perform Initial Synchronizations = 0, set to 1 in HKLM\\SYSTEM\\CurrentControlSet\\Services\\NTDS\\Parameters.",
+                       "IsEnabled":  true,
+                       "Version":  "2.0"
+                   }
+               ]
 }
